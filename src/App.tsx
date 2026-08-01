@@ -5,31 +5,30 @@ import { PortalAuthProvider, usePortalAuth } from './context/PortalAuthContext';
 import { PortalThemeProvider } from './context/PortalThemeContext';
 
 // ─── Lazy-loaded pages for code splitting ─────────────────────────────────────
-const LandingPage         = lazy(() => import('./pages/landing/LandingPage'));
-const LoginPage           = lazy(() => import('./pages/auth/LoginPage'));
-const RegisterPage        = lazy(() => import('./pages/auth/RegisterPage'));
+const LandingPage = lazy(() => import('./pages/landing/LandingPage'));
+const LoginPage = lazy(() => import('./pages/auth/LoginPage'));
+const RegisterPage = lazy(() => import('./pages/auth/RegisterPage'));
 const PendingApprovalPage = lazy(() => import('./pages/auth/PendingApprovalPage'));
-const ForgotPasswordPage  = lazy(() => import('./pages/auth/ForgotPasswordPage'));
+const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'));
 
-const CustomerLayout      = lazy(() => import('./layouts/CustomerLayout'));
-const CustomerDashboard   = lazy(() => import('./pages/customer/CustomerDashboard'));
-const NewOrderPage        = lazy(() => import('./pages/customer/NewOrderPage'));
-const MyOrdersPage        = lazy(() => import('./pages/customer/MyOrdersPage'));
-const CustomerLedgerPage  = lazy(() => import('./pages/customer/CustomerLedgerPage'));
+const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
+const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
+const MyOrdersPage = lazy(() => import('./pages/customer/MyOrdersPage'));
+const CustomerLedgerPage = lazy(() => import('./pages/customer/CustomerLedgerPage'));
 
-const CourierLayout       = lazy(() => import('./layouts/CourierLayout'));
-const CourierDashboard    = lazy(() => import('./pages/courier/CourierDashboard'));
-const CourierTasksPage    = lazy(() => import('./pages/courier/CourierTasksPage'));
-const CourierLedgerPage   = lazy(() => import('./pages/courier/CourierLedgerPage'));
+const CourierLayout = lazy(() => import('./layouts/CourierLayout'));
+const CourierDashboard = lazy(() => import('./pages/courier/CourierDashboard'));
+const CourierTasksPage = lazy(() => import('./pages/courier/CourierTasksPage'));
+const CourierLedgerPage = lazy(() => import('./pages/courier/CourierLedgerPage'));
 
-const SupplierLayout      = lazy(() => import('./layouts/SupplierLayout'));
-const SupplierDashboard   = lazy(() => import('./pages/supplier/SupplierDashboard'));
-const SupplierOrdersPage  = lazy(() => import('./pages/supplier/SupplierOrdersPage'));
-const SupplierLedgerPage  = lazy(() => import('./pages/supplier/SupplierLedgerPage'));
+const SupplierLayout = lazy(() => import('./layouts/SupplierLayout'));
+const SupplierDashboard = lazy(() => import('./pages/supplier/SupplierDashboard'));
+const SupplierOrdersPage = lazy(() => import('./pages/supplier/SupplierOrdersPage'));
+const SupplierLedgerPage = lazy(() => import('./pages/supplier/SupplierLedgerPage'));
 
-const ProfilePage         = lazy(() => import('./pages/shared/ProfilePage'));
-const AnnouncementsPage   = lazy(() => import('./pages/shared/AnnouncementsPage'));
-const SupportTicketsPage  = lazy(() => import('./pages/shared/SupportTicketsPage'));
+const ProfilePage = lazy(() => import('./pages/shared/ProfilePage'));
+const AnnouncementsPage = lazy(() => import('./pages/shared/AnnouncementsPage'));
+const SupportTicketsPage = lazy(() => import('./pages/shared/SupportTicketsPage'));
 
 // ─── Loading Fallback ─────────────────────────────────────────────────────────
 function PageLoading() {
@@ -61,7 +60,7 @@ function PageLoading() {
 // ─── Route Guards ─────────────────────────────────────────────────────────────
 function RequireAuth({ children, role }: { children: React.ReactNode; role?: string }) {
   const { user, initialized, loading } = usePortalAuth();
-  
+
   if (!initialized || loading) return <PageLoading />;
   if (!user) return <Navigate to="/auth/login" replace />;
   if (user.approvalStatus === 'pending_approval') return <Navigate to="/auth/pending" replace />;
@@ -76,8 +75,8 @@ function RequireGuest({ children }: { children: React.ReactNode }) {
   if (!initialized) return <PageLoading />;
   if (user && user.approvalStatus === 'approved') {
     const dest = user.portalRole === 'customer' ? '/portal/customer'
-               : user.portalRole === 'courier'   ? '/portal/courier'
-               : '/portal/supplier';
+      : user.portalRole === 'courier' ? '/portal/courier'
+        : '/portal/supplier';
     return <Navigate to={dest} replace />;
   }
   return <>{children}</>;
@@ -88,8 +87,8 @@ function HomeRedirect() {
   if (!user) return <Navigate to="/" replace />;
   if (user.approvalStatus !== 'approved') return <Navigate to="/auth/pending" replace />;
   const dest = user.portalRole === 'customer' ? '/portal/customer'
-             : user.portalRole === 'courier'   ? '/portal/courier'
-             : '/portal/supplier';
+    : user.portalRole === 'courier' ? '/portal/courier'
+      : '/portal/supplier';
   return <Navigate to={dest} replace />;
 }
 
@@ -102,9 +101,9 @@ function AppRoutes() {
         <Route path="/" element={<LandingPage />} />
 
         {/* Auth Routes */}
-        <Route path="/auth/login"   element={<RequireGuest><LoginPage /></RequireGuest>} />
+        <Route path="/auth/login" element={<RequireGuest><LoginPage /></RequireGuest>} />
         <Route path="/auth/register" element={<RequireGuest><RegisterPage /></RequireGuest>} />
-        <Route path="/auth/pending"  element={<PendingApprovalPage />} />
+        <Route path="/auth/pending" element={<PendingApprovalPage />} />
         <Route path="/auth/forgot-password" element={<ForgotPasswordPage />} />
 
         {/* Portal redirect */}
@@ -115,12 +114,12 @@ function AppRoutes() {
           <RequireAuth role="customer"><CustomerLayout /></RequireAuth>
         }>
           <Route index element={<CustomerDashboard />} />
-          <Route path="new-order" element={<NewOrderPage />} />
-          <Route path="orders"    element={<MyOrdersPage />} />
-          <Route path="ledger"    element={<CustomerLedgerPage />} />
+          <Route path="new-order" element={<MyOrdersPage />} />
+          <Route path="orders" element={<MyOrdersPage />} />
+          <Route path="ledger" element={<CustomerLedgerPage />} />
           <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="tickets"   element={<SupportTicketsPage />} />
-          <Route path="profile"   element={<ProfilePage />} />
+          <Route path="tickets" element={<SupportTicketsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* ── Courier Portal ─────────────────────────────────────────── */}
@@ -128,11 +127,11 @@ function AppRoutes() {
           <RequireAuth role="courier"><CourierLayout /></RequireAuth>
         }>
           <Route index element={<CourierDashboard />} />
-          <Route path="tasks"         element={<CourierTasksPage />} />
-          <Route path="ledger"        element={<CourierLedgerPage />} />
+          <Route path="tasks" element={<CourierTasksPage />} />
+          <Route path="ledger" element={<CourierLedgerPage />} />
           <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="tickets"       element={<SupportTicketsPage />} />
-          <Route path="profile"       element={<ProfilePage />} />
+          <Route path="tickets" element={<SupportTicketsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* ── Supplier Portal ────────────────────────────────────────── */}
@@ -140,11 +139,11 @@ function AppRoutes() {
           <RequireAuth role="supplier"><SupplierLayout /></RequireAuth>
         }>
           <Route index element={<SupplierDashboard />} />
-          <Route path="orders"        element={<SupplierOrdersPage />} />
-          <Route path="ledger"        element={<SupplierLedgerPage />} />
+          <Route path="orders" element={<SupplierOrdersPage />} />
+          <Route path="ledger" element={<SupplierLedgerPage />} />
           <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="tickets"       element={<SupportTicketsPage />} />
-          <Route path="profile"       element={<ProfilePage />} />
+          <Route path="tickets" element={<SupportTicketsPage />} />
+          <Route path="profile" element={<ProfilePage />} />
         </Route>
 
         {/* Catch-all */}

@@ -9,6 +9,8 @@ import { usePortalTheme } from '../../context/PortalThemeContext';
 import { supabase } from '../../lib/supabase';
 import type { Announcement } from '../../types/portalTypes';
 
+import JobApplicationModal from '../public/JobApplicationModal';
+
 // ─── Track Modal ──────────────────────────────────────────────────────────────
 function TrackModal({ trackingNum, onClose }: { trackingNum: string; onClose: () => void }) {
   const { tr, isRtl } = usePortalTheme();
@@ -123,6 +125,7 @@ export default function LandingPage() {
   const { tr, lang, toggleLang, toggleTheme, theme, isRtl } = usePortalTheme();
   const [trackInput, setTrackInput] = useState('');
   const [trackingModal, setTrackingModal] = useState<string | null>(null);
+  const [isJobModalOpen, setIsJobModalOpen] = useState(false);
   const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   const [mobileMenu, setMobileMenu] = useState(false);
 
@@ -191,6 +194,9 @@ export default function LandingPage() {
 
           {/* Controls */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <button className="btn btn-outline btn-sm hide-mobile" onClick={() => setIsJobModalOpen(true)} style={{ gap: '0.3rem', borderColor: 'rgba(212,175,55,0.4)', color: 'var(--gold)' }}>
+              💼 {isRtl ? 'تقديم على وظيفة' : 'Careers'}
+            </button>
             <button className="btn btn-ghost btn-sm" onClick={toggleTheme} title={tr(theme === 'dark' ? 'lightMode' : 'darkMode')}>
               {theme === 'dark' ? <Sun size={15} /> : <Moon size={15} />}
             </button>
@@ -259,6 +265,9 @@ export default function LandingPage() {
               {tr('startNow')}
               {isRtl ? <ArrowLeft size={16} /> : <ArrowRight size={16} />}
             </Link>
+            <button className="btn btn-outline btn-lg" onClick={() => setIsJobModalOpen(true)} style={{ gap: '0.4rem', borderColor: 'rgba(212,175,55,0.4)', color: 'var(--gold)' }}>
+              💼 {isRtl ? 'التقديم على وظيفة' : 'Apply for a Job'}
+            </button>
             <a href="#services" className="btn btn-outline btn-lg">
               {tr('services')} <ChevronDown size={15} />
             </a>
@@ -417,6 +426,9 @@ export default function LandingPage() {
               <span style={{ fontWeight: 800, color: 'var(--gold)', fontSize: '0.95rem' }}>ALX Delivery</span>
             </div>
             <div style={{ display: 'flex', gap: '1.5rem', flexWrap: 'wrap' }}>
+              <button onClick={() => setIsJobModalOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 0, fontSize: '0.75rem', color: 'var(--gold)', fontWeight: 700 }}>
+                💼 {isRtl ? 'التقديم على وظيفة' : 'Careers'}
+              </button>
               <a href="#" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'none' }}>{tr('privacyPolicy')}</a>
               <a href="#" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'none' }}>{tr('termsOfService')}</a>
               <Link to="/auth/login" style={{ fontSize: '0.75rem', color: 'var(--text-muted)', textDecoration: 'none' }}>{tr('login')}</Link>
@@ -432,6 +444,9 @@ export default function LandingPage() {
       {trackingModal && (
         <TrackModal trackingNum={trackingModal} onClose={() => setTrackingModal(null)} />
       )}
+
+      {/* Job Application Modal */}
+      <JobApplicationModal isOpen={isJobModalOpen} onClose={() => setIsJobModalOpen(false)} />
 
       <style>{`
         @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
