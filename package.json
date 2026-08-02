@@ -7,8 +7,9 @@
   "scripts": {
     "dev": "vite --port 5174",
     "build": "tsc -b && vite build",
-    "start": "vite preview --host 0.0.0.0",
-    "preview": "vite preview"
+    "build:server": "esbuild server.ts --bundle --platform=node --format=cjs --sourcemap --outfile=dist/server.cjs",
+    "build:all": "npm run build && npm run build:server",
+    "start": "node dist/server.cjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.1",
