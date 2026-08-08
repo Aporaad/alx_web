@@ -30,9 +30,12 @@ function deriveUsername(email: string, fullName?: string): string {
 }
 
 // ─── Helper: generate deterministic entity IDs ──────────────────────────────
-function makeCustomerId(uid: string) { return 'cust_' + uid.replace(/-/g, '').slice(0, 12); }
-function makeCourierId(uid: string) { return 'cour_' + uid.replace(/-/g, '').slice(0, 12); }
-function makeSourceId(uid: string) { return 'src_' + uid.replace(/-/g, '').slice(0, 12); }
+const { prefix: custPrefix, accountNumber: custAccountNumber, accountCode: custAccountCode, accountId: custAccountId } = await getNextAccountCode('customer');
+function makeCustomerId(uid: string) { return 'cust_' + custAccountNumber; }
+const { prefix: courPrefix, accountNumber: courAccountNumber, accountCode: courAccountCode, accountId: courAccountId } = await getNextAccountCode('courier');
+function makeCourierId(uid: string) { return 'cour_' + courAccountNumber; }
+const { prefix: srcPrefix, accountNumber: srcAccountNumber, accountCode: srcAccountCode, accountId: srcAccountId } = await getNextAccountCode('supplier');
+function makeSourceId(uid: string) { return 'src_' + srcAccountNumber; }
 
 export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PortalUser | null>(() => {
@@ -206,18 +209,18 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const register = useCallback(async (formData: RegisterFormData): Promise<{ pendingApproval: boolean }> => {
     setLoading(true);
     try {
-      const email    = formData.email.trim().toLowerCase();
+      const email = formData.email.trim().toLowerCase();
       const password = formData.password;
       const fullName = formData.fullName.trim();
-      const phone    = formData.phone.trim();
-      const address  = (formData.address || '').trim();
-      const now      = Date.now();
+      const phone = formData.phone.trim();
+      const address = (formData.address || '').trim();
+      const now = Date.now();
 
       const username = deriveUsername(email, fullName);
 
-      const isCustomer  = formData.portalRole === 'customer';
-      const isCourier   = formData.portalRole === 'courier';
-      const isSupplier  = formData.portalRole === 'supplier';
+      const isCustomer = formData.portalRole === 'customer';
+      const isCourier = formData.portalRole === 'courier';
+      const isSupplier = formData.portalRole === 'supplier';
       const approvalStatus: ApprovalStatus = isCustomer ? 'approved' : 'pending_approval';
       const entityType: 'customer' | 'courier' | 'supplier' =
         isCustomer ? 'customer' : isCourier ? 'courier' : 'supplier';
@@ -385,7 +388,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         try {
           const { data: loginRes } = await supabase.auth.signInWithPassword({ email, password });
           if (loginRes.session) persistProfile(portalProfile);
-        } catch (_) {}
+        } catch (_) { }
       }
 
       return { pendingApproval: !isCustomer };
@@ -397,7 +400,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       await supabase.auth.signOut();
-    } catch (_) {}
+    } catch (_) { }
     setUser(null);
     localStorage.removeItem(SESSION_KEY);
     sessionStorage.removeItem(SESSION_KEY);
