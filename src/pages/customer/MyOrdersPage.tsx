@@ -19,7 +19,7 @@ import {
   Package, Search, Eye, X, PlusCircle, MapPin,
   Calculator, CheckCircle2, User, Plus, Trash2,
   Shield, Receipt, DollarSign, Zap, Gift, Sparkles,
-  CreditCard, Info, ExternalLink, AlertCircle, RefreshCw, FileText
+  CreditCard, Info, ExternalLink, AlertCircle, RefreshCw, FileText, Truck
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
@@ -27,6 +27,7 @@ import {
   getCollection,
   insertDoc
 } from '../../lib/supabase';
+import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -91,9 +92,11 @@ export default function MyOrdersPage({
   const [loadingOrders, setLoadingOrders] = useState(true);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [orderStatuses, setOrderStatuses] = useState<any[]>([]);
   const [detailsOrder, setDetailsOrder] = useState<any | null>(null);
+  const [trackModalNum, setTrackModalNum] = useState<string | null>(null);
 
-  // ── DB Settings & Sources ──────────────────────────────────────────────────
+  // ── DB Settings & Sources & Order Statuses ─────────────────────────────
   const [sources, setSources] = useState<any[]>([]);
   const [dbSettings, setDbSettings] = useState<any>({
     exchangeRateSAR: 140,
@@ -102,6 +105,15 @@ export default function MyOrdersPage({
     defaultCompanyProfitRate: 12,
     defaultPackagingFee: 0,
   });
+
+  useEffect(() => {
+    getCollection('order_status').then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        data.sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
+        setOrderStatuses(data);
+      }
+    }).catch(err => console.error("Error fetching order_status in MyOrdersPage:", err));
+  }, []);
 
   // ── Form state ──────────────────────────────────────────────────────────────
   const [orderSourceId, setOrderSourceId] = useState('');
@@ -467,16 +479,15 @@ export default function MyOrdersPage({
               <input type="text" className="form-input" value={search}
                 onChange={e => setSearch(e.target.value)} placeholder={tr('search')} />
             </div>
+            {/* فلترة ديناميكية من جدول حالات الطلب order_status */}
             <select className="form-select" style={{ width: 'auto', minWidth: 170 }}
               value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
               <option value="all">{isRtl ? 'الكل' : 'All Statuses'}</option>
-              <option value="معلق">{isRtl ? 'معلق — قيد المراجعة' : 'Pending Review'}</option>
-              <option value="تم تسجيل الطلب واستخلاص الفاتورة">{isRtl ? 'تم الاعتماد — معالجة' : 'Approved'}</option>
-              <option value="وصل مستودع السعودية">{isRtl ? 'وصل السعودية' : 'Arrived KSA'}</option>
-              <option value="جاري الشحن لليمن">{isRtl ? 'في الشحن' : 'Shipping'}</option>
-              <option value="وصل مركز التوزيع في اليمن">{isRtl ? 'وصل اليمن' : 'Arrived Yemen'}</option>
-              <option value="مع المندوب للتوصيل">{isRtl ? 'مع المندوب' : 'Out for Delivery'}</option>
-              <option value="تم التسليم">{isRtl ? 'تم التسليم' : 'Delivered'}</option>
+              {orderStatuses.map(st => (
+                <option key={st.id} value={st.nameAr || st.name_ar}>
+                  {isRtl ? (st.nameAr || st.name_ar) : (st.nameEn || st.name_en || st.nameAr || st.name_ar)}
+                </option>
+              ))}
             </select>
             <button className="btn btn-ghost btn-sm" onClick={loadOrders}>
               <RefreshCw size={14} />
@@ -538,7 +549,10 @@ export default function MyOrdersPage({
                         <td style={{ color: '#f87171', fontWeight: 700, fontSize: '0.78rem' }}>
                           {(ord.amountRemaining || 0).toLocaleString()} YER
                         </td>
-                        <td>
+                        <td style={{ display: 'flex', gap: '0.3rem', alignItems: 'center' }}>
+                          <button className="btn btn-ghost btn-sm" onClick={() => setTrackModalNum(ord.orderNumber || ord.trackingNumber || ord.id)} title={tr('trackOrder')}>
+                            <Truck size={13} style={{ color: 'var(--gold)' }} />
+                          </button>
                           <button className="btn btn-ghost btn-sm" onClick={() => setDetailsOrder(ord)}>
                             <Eye size={13} /> {tr('viewDetails')}
                           </button>
@@ -551,6 +565,14 @@ export default function MyOrdersPage({
             )}
           </div>
         </>
+      )}
+
+      {/* Track Modal */}
+      {trackModalNum && (
+        <CustomerTrackModal
+          trackingNum={trackModalNum}
+          onClose={() => setTrackModalNum(null)}
+        />
       )}
 
       {/* TAB 2: NEW ORDER FORM */}

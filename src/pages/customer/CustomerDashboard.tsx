@@ -2,26 +2,18 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import {
   Package, PlusCircle, FileText, Clock, CheckCircle2, ArrowLeft, ArrowRight,
-  TrendingDown, DollarSign, Truck, AlertCircle, RefreshCw, Eye
+  TrendingDown, DollarSign, Truck, AlertCircle, RefreshCw, Eye, Search, ShieldCheck
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { getCollection } from '../../lib/supabase';
+import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
-const STATUS_AR_EN: Record<string, string> = {
-  'معلق': 'Pending Review',
-  'في الطريق': 'In Transit',
-  'تم التسليم': 'Delivered',
-  'تم تسجيل الطلب': 'Registered',
-  'وصل مركز التوزيع': 'At Distribution Center',
-  'خرج للتوصيل': 'Out for Delivery',
-  'مرجع': 'Returned',
-};
-
+// Dynamic status color helper
 function statusColor(status: string): string {
   const s = (status || '').toLowerCase();
   if (s.includes('تم التسليم') || s.includes('delivered')) return '#34d399';
-  if (s.includes('مرجع') || s.includes('return')) return '#f87171';
+  if (s.includes('مرجع') || s.includes('return') || s.includes('ملغي') || s.includes('cancelled')) return '#f87171';
   if (s.includes('معلق') || s.includes('pending')) return '#fbbf24';
   return 'var(--gold)';
 }
@@ -34,6 +26,31 @@ export default function CustomerDashboard() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, delivered: 0, balance: 0, returned: 0 });
+  const [statusMap, setStatusMap] = useState<Record<string, string>>({});
+
+  const [trackInput, setTrackInput] = useState('');
+  const [activeTrackNum, setActiveTrackNum] = useState<string | null>(null);
+
+  const handleTrackSubmit = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    if (trackInput.trim()) {
+      setActiveTrackNum(trackInput.trim());
+    }
+  };
+
+  useEffect(() => {
+    getCollection('order_status').then((data) => {
+      if (Array.isArray(data) && data.length > 0) {
+        const map: Record<string, string> = {};
+        data.forEach((st: any) => {
+          if (st.nameAr || st.name_ar) {
+            map[st.nameAr || st.name_ar] = st.nameEn || st.name_en || st.nameAr || st.name_ar;
+          }
+        });
+        setStatusMap(map);
+      }
+    }).catch(err => console.error("Error fetching order_status map in CustomerDashboard:", err));
+  }, []);
 
   const loadDashboard = useCallback(async () => {
     if (!user) return;
@@ -122,6 +139,28 @@ export default function CustomerDashboard() {
             </Link>
           </div>
         </div>
+      </div>
+
+      {/* ── Quick Secure Tracking Bar ──────────────────────────────────── */}
+      <div className="glass-card" style={{ padding: '1rem 1.25rem' }}>
+        <form onSubmit={handleTrackSubmit} style={{ display: 'flex', gap: '0.75rem', alignItems: 'center', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--gold)', fontWeight: 800, fontSize: '0.85rem' }}>
+            <ShieldCheck size={18} />
+            <span>{tr('securedTracking')}</span>
+          </div>
+          <div style={{ flex: 1, minWidth: 200, display: 'flex', gap: '0.4rem', background: 'var(--bg-input)', borderRadius: '0.6rem', border: '1px solid var(--bg-border)', padding: '0.2rem 0.5rem' }}>
+            <input
+              type="text"
+              value={trackInput}
+              onChange={e => setTrackInput(e.target.value)}
+              placeholder={tr('quickTrackPlaceholder')}
+              style={{ border: 'none', background: 'transparent', flex: 1, outline: 'none', color: 'var(--text-primary)', fontSize: '0.82rem', fontFamily: 'var(--font-main)' }}
+            />
+            <button type="submit" className="btn btn-gold btn-sm" style={{ gap: '0.3rem', flexShrink: 0 }}>
+              <Search size={13} /> {tr('trackNow')}
+            </button>
+          </div>
+        </form>
       </div>
 
       {/* ── KPI Stat Cards ─────────────────────────────────────────────── */}
@@ -220,7 +259,7 @@ export default function CustomerDashboard() {
               <tbody>
                 {orders.map((ord: any) => {
                   const status = ord.orderStatus || ord.status || 'معلق';
-                  const statusLabel = STATUS_AR_EN[status] || status;
+                  const statusLabel = statusMap[status] || status;
                   return (
                     <tr key={ord.id}>
                       <td style={{ fontWeight: 800, color: 'var(--gold)', fontFamily: 'var(--font-mono)' }}>
@@ -253,9 +292,13 @@ export default function CustomerDashboard() {
                         {(ord.amountRemaining || 0).toLocaleString()} {ord.currency || 'YER'}
                       </td>
                       <td>
-                        <Link to="/portal/customer/orders" className="btn btn-ghost btn-sm">
+                        <button
+                          className="btn btn-ghost btn-sm"
+                          onClick={() => setActiveTrackNum(ord.orderNumber || ord.trackingNumber || ord.id)}
+                          title={isRtl ? 'تتبع تفصيلي' : 'Track Order'}
+                        >
                           <Eye size={13} />
-                        </Link>
+                        </button>
                       </td>
                     </tr>
                   );
@@ -316,6 +359,14 @@ export default function CustomerDashboard() {
           </div>
         ))}
       </div>
+
+      {/* ── Secure Tracking Modal ────────────────────────────────────────── */}
+      {activeTrackNum && (
+        <CustomerTrackModal
+          trackingNum={activeTrackNum}
+          onClose={() => setActiveTrackNum(null)}
+        />
+      )}
     </div>
   );
 }

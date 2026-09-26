@@ -211,6 +211,41 @@ export const t: Record<string, { ar: string; en: string }> = {
   privacyPolicy: { ar: 'سياسة الخصوصية', en: 'Privacy Policy' },
   termsOfService: { ar: 'الشروط والأحكام', en: 'Terms of Service' },
   allRightsReserved: { ar: 'جميع الحقوق محفوظة', en: 'All rights reserved' },
+
+  // ── Landing & Secure Tracking Extensions ──
+  howItWorks: { ar: 'كيف نعمل', en: 'How It Works' },
+  howItWorksSub: { ar: 'خطوات بسيطة وشفافة لنقل شحنتك بسلامة وأمان من البداية حتى التسليم', en: 'Simple & transparent steps to transport your goods safely from order to delivery' },
+  step1Title: { ar: '1. تقديم الطلب', en: '1. Place Order' },
+  step1Desc: { ar: 'حدد تفاصيل شحنتك ومصدر الشراء بكل سهولة عبر منصتنا أو التطبيق', en: 'Specify your shipment details & source easily through our platform' },
+  step2Title: { ar: '2. المعالجة والتجهيز', en: '2. Processing' },
+  step2Desc: { ar: 'يقوم فريقنا بفحص البضائع وتغليفها وتحديد مسار الشحن الأنسب', en: 'Our team verifies, packages, and optimizes shipping routes' },
+  step3Title: { ar: '3. الشحن والتتبع', en: '3. Transit & Track' },
+  step3Desc: { ar: 'تتبع حركة شحنتك لحظة بلحظة وبأمان تام عبر حسابك الخاص', en: 'Track your shipment progress step by step securely in your portal' },
+  step4Title: { ar: '4. التوصيل النهائي', en: '4. Doorstep Delivery' },
+  step4Desc: { ar: 'توصيل سريع لباب بيتك أو منزلك مع إشعار واستلام فوري', en: 'Door-to-door delivery with instant confirmation upon receipt' },
+
+  calculatorTitle: { ar: 'حاسبة التكلفة التقديرية للشحن', en: 'Shipping Cost Estimator' },
+  calculatorSub: { ar: 'احسب التكلفة التقديرية لشحنتك قبل البدء بخطوات سريعة وسهلة', en: 'Estimate your shipping cost in quick steps before getting started' },
+  selectShipmentType: { ar: 'نوع خدمة الشحن', en: 'Shipment Service Type' },
+  weightKgLabel: { ar: 'الوزن الإجمالي (كجم)', en: 'Total Weight (KG)' },
+  cbmLabel: { ar: 'الحجم والتكعيب (CBM)', en: 'Volume (CBM)' },
+  estimatedShippingFee: { ar: 'رسوم الشحن التقديرية', en: 'Estimated Shipping Fee' },
+  disclaimerCalc: { ar: 'تنويه: هذه الحسبة تقديرية وتتأكد رسمياً عند مراجعة واعتماد الطلب من الإدارة.', en: 'Note: Estimate only; verified upon official order review.' },
+
+  faqTitle: { ar: 'الأسئلة الشائعة', en: 'Frequently Asked Questions' },
+  faqSub: { ar: 'إجابات شاملة على أكثر التساؤلات تكراراً حول خدمات الشحن والتغطية', en: 'Comprehensive answers to common questions about services and coverage' },
+  faq1Q: { ar: 'كيف يمكنني متابعة وتتبع حالة شحنتي؟', en: 'How can I track my shipment status?' },
+  faq1A: { ar: 'تتيح بوابة ALX تتبع الشحنات بأعلى درجات الأمان والخصوصية بعد تسجيل الدخول لحسابك في بوابة العميل، حيث تعرض لك الشحنات المسجلة باسمك وحسابك فقط.', en: 'ALX Portal allows secure tracking after logging into your Client Portal. Only orders registered under your account are visible for maximum privacy.' },
+  faq2Q: { ar: 'ما هي الدول والمناطق التي تقومون بالشحن منها وإليها؟', en: 'Which countries do you ship from and to?' },
+  faq2A: { ar: 'نقدم خدمات التوصيل المحلي داخل اليمن، والشحن الدولي من وإلى الصين، تركيا، الهند، السعودية، الإمارات، وقطر وغيرها في أكثر من 24 دولة.', en: 'We provide local delivery in Yemen, plus international shipping to/from China, Turkey, India, KSA, UAE, Qatar, and 24+ countries.' },
+  faq3Q: { ar: 'كم يستغرق الشحن والتوصيل؟', en: 'How long does shipping & delivery take?' },
+  faq3A: { ar: 'التوصيل المحلي يستغرق عادة 24-48 ساعة. الشحن الدولي الجوي يستغرق 5-8 أيام عمل، والتوريد البحري من المصانع يستغرق 15-25 يوماً.', en: 'Local delivery takes 24-48 hours. Express air shipping takes 5-8 business days, and sea freight sourcing takes 15-25 days.' },
+  faq4Q: { ar: 'هل يمكنني التوريد مباشرة من المصانع الخارجية؟', en: 'Can I import directly from international factories?' },
+  faq4A: { ar: 'نعم! نوفر خدمة التوريد المباشر CBM، وتخليص إجراءات المصانع، والتأكد من جودة وتغليف البضائع قبل شحنها.', en: 'Yes! We offer direct CBM sourcing, factory inspection, and customs clearance before shipping.' },
+
+  securedTracking: { ar: 'تتبع الشحنات الآمن', en: 'Secured Shipment Tracking' },
+  notYourOrderError: { ar: 'عفواً، هذه الشحنة غير مرتبطة بحسابك ولا يمكنك الاطلاع على تفاصيلها.', en: 'Sorry, this shipment is not associated with your account and cannot be tracked.' },
+  quickTrackPlaceholder: { ar: 'أدخل رقم الشحنة أو التتبع...', en: 'Enter order or tracking number...' },
 };
 
 export type TKey = keyof typeof t;

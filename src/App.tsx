@@ -15,6 +15,7 @@ const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
 const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
 const MyOrdersPage = lazy(() => import('./pages/customer/MyOrdersPage'));
 const CustomerLedgerPage = lazy(() => import('./pages/customer/CustomerLedgerPage'));
+const CustomerOnboardingPage = lazy(() => import('./pages/customer/CustomerOnboardingPage'));
 
 const CourierLayout = lazy(() => import('./layouts/CourierLayout'));
 const CourierDashboard = lazy(() => import('./pages/courier/CourierDashboard'));
@@ -86,6 +87,9 @@ function HomeRedirect() {
   const { user } = usePortalAuth();
   if (!user) return <Navigate to="/" replace />;
   if (user.approvalStatus !== 'approved') return <Navigate to="/auth/pending" replace />;
+  if (user.portalRole === 'customer' && user.onboardingCompleted === false) {
+    return <Navigate to="/portal/customer/onboarding" replace />;
+  }
   const dest = user.portalRole === 'customer' ? '/portal/customer'
     : user.portalRole === 'courier' ? '/portal/courier'
       : '/portal/supplier';
@@ -114,6 +118,7 @@ function AppRoutes() {
           <RequireAuth role="customer"><CustomerLayout /></RequireAuth>
         }>
           <Route index element={<CustomerDashboard />} />
+          <Route path="onboarding" element={<CustomerOnboardingPage />} />
           <Route path="new-order" element={<MyOrdersPage />} />
           <Route path="orders" element={<MyOrdersPage />} />
           <Route path="ledger" element={<CustomerLedgerPage />} />

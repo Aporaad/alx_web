@@ -180,7 +180,7 @@ export default function CustomerLedgerPage() {
           cashAccountCode = cashAcc.accountCode || cashAcc.code || '1111-0';
           cashAccountName = cashAcc.entityName || cashAcc.nameAr || 'حساب الصندوق العام (كاش)';
         }
-      } catch (_) {}
+      } catch (_) { }
 
       const custAccountId = user.financialAccountId || user.linkedAccId || user.uid;
       const custAccountCode = user.financialAccountCode || '1130-0001';
@@ -489,7 +489,7 @@ export default function CustomerLedgerPage() {
             <div style={{ padding: '1.5rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
                 <h3 style={{ fontWeight: 900, fontSize: '1.1rem', color: 'var(--gold)', display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                  <CreditCard size={18} /> {isRtl ? 'تسديد دفعة لحسابك (إصدار سند قبض قيد مالي)' : 'Pay Account Installment'}
+                  <CreditCard size={18} /> {isRtl ? 'تسديد دفعة لحسابك' : 'Pay Account Installment'}
                 </h3>
                 <button className="btn btn-ghost btn-sm" onClick={() => setIsPaymentModalOpen(false)}><X size={16} /></button>
               </div>
@@ -565,12 +565,12 @@ export default function CustomerLedgerPage() {
                   </div>
 
                   <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', background: 'rgba(255,255,255,0.03)', padding: '0.6rem', borderRadius: '0.4rem' }}>
-                    📌 {isRtl ? 'سيتم قيد القيد المحاسبي تلقائياً: الطرف المدين (الصندوق العام) ⬅️ الطرف الدائن (حسابك المالي).' : 'Double-entry journal voucher: Debit (Cash Account) ⬅️ Credit (Customer Account).'}
+                    📌 {isRtl ? 'سيتم تقييد القيد المحاسبي تلقائياً: الطرف المدين (الصندوق العام) ⬅️ الطرف الدائن (حسابك المالي).' : 'Double-entry journal voucher: Debit (Cash Account) ⬅️ Credit (Customer Account).'}
                   </div>
 
                   <button type="submit" disabled={submittingPayment} className="btn btn-gold btn-full btn-lg">
                     {submittingPayment ? <div className="spinner" /> : <PlusCircle size={16} />}
-                    {isRtl ? 'تأكيد وقيد السند مزدوج الأطراف' : 'Confirm & Record Double-Entry Voucher'}
+                    {isRtl ? 'تأكيد الدفعة وحفظ القيد' : 'Confirm Payment & Record Voucher'}
                   </button>
                 </form>
               )}

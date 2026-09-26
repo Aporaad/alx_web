@@ -70,7 +70,7 @@ export default function RegisterPage() {
       if (res.pendingApproval) {
         navigate('/auth/pending');
       } else {
-        navigate('/portal/customer');
+        navigate('/portal/customer/onboarding');
       }
     } catch (err: any) {
       setError(err.message || tr('error'));

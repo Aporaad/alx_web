@@ -37,7 +37,58 @@ export interface PortalUser {
   financialCurrency?: string;
   type?: string;
 
+  // Onboarding & Referral fields
+  joinBy?: string;            // 'ad' | 'facebook' | 'instagram' | 'friend' | 'courier' | 'employee' | 'other'
+  referrerId?: string;        // ID of referring customer/courier/employee
+  onboardingCompleted?: boolean;
+
   createdAt: number;          // Epoch milliseconds
+  updatedAt: number;
+}
+
+// ─── Customer Details Schema (cust_details table) ──────────────────────────────
+export interface LocationDetails {
+  country: string;
+  governorate: string;
+  city: string;
+  street: string;
+  addressDetails?: string;
+  lat?: number | null;
+  lng?: number | null;
+}
+
+export interface BodyDetails {
+  heightCm?: number | null;
+  weightKg?: number | null;
+  shortsSize?: string;
+  coatSize?: string;
+  pantsSize?: string;
+  shoeSize?: string;
+  preferredColors?: string[];
+}
+
+export interface AcquisitionSource {
+  joinBy: string;             // 'ad' | 'facebook' | 'instagram' | 'friend' | 'courier' | 'employee' | 'other'
+  referrerId?: string;        // ID of referrer
+  notes?: string;
+}
+
+export interface CustomerDetails {
+  id: string;                 // Detail record ID / userUid
+  userUid: string;            // FK -> portal_users.id (user_uid in DB)
+  customerId?: string;        // FK -> customers.id (customer_id in DB)
+  privacyPolicyAgreed: boolean;
+  privacyPolicyAgreedAt?: number;
+  gender?: 'male' | 'female' | 'other';
+  age?: number;
+  location?: LocationDetails;
+  bodyDetails?: BodyDetails;
+  preferredCategories?: string[];
+  acquisitionSource?: AcquisitionSource;
+  joinBy?: string;            // (join_by top-level column)
+  referrerId?: string;        // (referrer_id top-level column)
+  onboardingCompleted: boolean;
+  createdAt: number;
   updatedAt: number;
 }
 
@@ -50,6 +101,8 @@ export interface RegisterFormData {
   confirmPassword: string;
   portalRole: PortalRole;
   address?: string;
+  joinBy?: string;
+  referrerId?: string;
   // Courier-specific
   courierType?: 'local' | 'sourcing';
   identityDocNote?: string;  // Textual ID info (e.g. "ID: 1234567") until upload

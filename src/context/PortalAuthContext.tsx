@@ -2,11 +2,13 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import type { ReactNode } from 'react';
 import { supabase, getDocById, upsertDoc, updateDocData, getCollection } from '../lib/supabase';
 import { getNextAccountCode, createFinancialAccountRecord } from '../lib/financialAccountHelper';
-import type { PortalUser, PortalRole, ApprovalStatus, RegisterFormData } from '../types/portalTypes';
+import type { PortalUser, PortalRole, ApprovalStatus, RegisterFormData, CustomerDetails } from '../types/portalTypes';
+import { getCustomerDetails, saveCustomerDetails as saveCustDetailsHelper } from '../lib/custDetailsHelper';
 
 // ─── Context Interface ────────────────────────────────────────────────────────
 interface PortalAuthContextType {
   user: PortalUser | null;
+  customerDetails: CustomerDetails | null;
   loading: boolean;
   initialized: boolean;
   login: (identifier: string, password: string) => Promise<void>;
@@ -14,6 +16,7 @@ interface PortalAuthContextType {
   logout: () => Promise<void>;
   refreshUser: () => Promise<void>;
   updateProfile: (updates: Partial<PortalUser>) => Promise<void>;
+  saveCustomerDetails: (details: Partial<CustomerDetails>) => Promise<CustomerDetails>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
 }
 
@@ -30,12 +33,9 @@ function deriveUsername(email: string, fullName?: string): string {
 }
 
 // ─── Helper: generate deterministic entity IDs ──────────────────────────────
-const { prefix: custPrefix, accountNumber: custAccountNumber, accountCode: custAccountCode, accountId: custAccountId } = await getNextAccountCode('customer');
-function makeCustomerId(uid: string) { return 'cust_' + custAccountNumber; }
-const { prefix: courPrefix, accountNumber: courAccountNumber, accountCode: courAccountCode, accountId: courAccountId } = await getNextAccountCode('courier');
-function makeCourierId(uid: string) { return 'cour_' + courAccountNumber; }
-const { prefix: srcPrefix, accountNumber: srcAccountNumber, accountCode: srcAccountCode, accountId: srcAccountId } = await getNextAccountCode('supplier');
-function makeSourceId(uid: string) { return 'src_' + srcAccountNumber; }
+function makeCustomerId(accountNumber: string) { return 'cust_' + accountNumber; }
+function makeCourierId(accountNumber: string) { return 'cour_' + accountNumber; }
+function makeSourceId(accountNumber: string) { return 'src_' + accountNumber; }
 
 export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<PortalUser | null>(() => {
@@ -46,13 +46,24 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       return null;
     }
   });
+  const [customerDetails, setCustomerDetails] = useState<CustomerDetails | null>(null);
   const [loading, setLoading] = useState(false);
   const [initialized, setInitialized] = useState(false);
+
+  const loadCustDetails = useCallback(async (uid: string) => {
+    try {
+      const details = await getCustomerDetails(uid);
+      setCustomerDetails(details);
+    } catch (_) {}
+  }, []);
 
   const persistProfile = useCallback((profile: PortalUser) => {
     setUser(profile);
     localStorage.setItem(SESSION_KEY, JSON.stringify(profile));
-  }, []);
+    if (profile.portalRole === 'customer') {
+      loadCustDetails(profile.uid);
+    }
+  }, [loadCustDetails]);
 
   const fetchPortalProfile = useCallback(async (
     uid: string,
@@ -62,6 +73,10 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     try {
       const doc = await getDocById('portal_users', uid);
       if (doc && doc.portalRole) {
+        if (doc.portalRole === 'customer') {
+          const custDet = await getCustomerDetails(uid);
+          doc.onboardingCompleted = custDet?.onboardingCompleted ?? doc.onboardingCompleted ?? false;
+        }
         return doc as PortalUser;
       }
 
@@ -258,7 +273,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
       // ── Step 3: Create entity record WITH financial codes already embedded ────
       if (isCustomer) {
-        linkedAccId = makeCustomerId(uid);
+        linkedAccId = makeCustomerId(accountNumber);
         linkedCustomerId = linkedAccId;
 
         await upsertDoc('customers', linkedAccId, {
@@ -280,7 +295,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         });
 
       } else if (isCourier) {
-        linkedAccId = makeCourierId(uid);
+        linkedAccId = makeCourierId(accountNumber);
         linkedCourierId = linkedAccId;
 
         const courierNotes = [
@@ -312,7 +327,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         });
 
       } else if (isSupplier) {
-        linkedAccId = makeSourceId(uid);
+        linkedAccId = makeSourceId(accountNumber);
         linkedSourceId = linkedAccId;
 
         const supplierNotes = [
@@ -375,11 +390,29 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         commercialRegisterUrl: '',
         profileImageUrl: '',
         notes: '',
+        onboardingCompleted: isCustomer ? false : true,
+        joinBy: formData.joinBy || '',
+        referrerId: formData.referrerId || '',
         createdAt: now,
         updatedAt: now,
       };
 
       await upsertDoc('portal_users', uid, portalProfile);
+
+      if (isCustomer) {
+        try {
+          await saveCustDetailsHelper({
+            userUid: uid,
+            customerId: linkedAccId,
+            privacyPolicyAgreed: false,
+            joinBy: formData.joinBy || '',
+            referrerId: formData.referrerId || '',
+            onboardingCompleted: false,
+          });
+        } catch (e) {
+          console.warn('[PortalAuth] Error initializing cust_details:', e);
+        }
+      }
 
       // ── Step 6: Persist session ───────────────────────────────────────────────
       if (authData.session) {
@@ -454,6 +487,21 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     persistProfile(updated);
   }, [user, persistProfile]);
 
+  const saveCustomerDetails = useCallback(async (details: Partial<CustomerDetails>): Promise<CustomerDetails> => {
+    if (!user) throw new Error('يرجى تسجيل الدخول أولاً');
+    const result = await saveCustDetailsHelper({
+      ...details,
+      userUid: user.uid,
+      customerId: user.linkedCustomerId || user.linkedAccId,
+    });
+    setCustomerDetails(result);
+    if (result.onboardingCompleted !== user.onboardingCompleted) {
+      const updatedUser = { ...user, onboardingCompleted: result.onboardingCompleted };
+      persistProfile(updatedUser);
+    }
+    return result;
+  }, [user, persistProfile]);
+
   const changePassword = useCallback(async (_currentPassword: string, newPassword: string) => {
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw new Error(error.message || 'فشل تغيير كلمة المرور. يرجى المحاولة مجدداً.');
@@ -461,8 +509,8 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   return (
     <PortalAuthContext.Provider value={{
-      user, loading, initialized,
-      login, register, logout, refreshUser, updateProfile, changePassword
+      user, customerDetails, loading, initialized,
+      login, register, logout, refreshUser, updateProfile, saveCustomerDetails, changePassword
     }}>
       {children}
     </PortalAuthContext.Provider>

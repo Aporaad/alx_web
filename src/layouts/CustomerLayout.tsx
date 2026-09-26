@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
   LayoutDashboard, Package, PlusCircle, FileText, Megaphone,
   MessageSquare, User, LogOut, Menu, X, ChevronDown, Search, Globe, Sun, Moon
@@ -32,6 +32,17 @@ export default function CustomerLayout() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // If customer has not completed onboarding, redirect to onboarding wizard
+  if (user?.portalRole === 'customer' && user?.onboardingCompleted === false && location.pathname !== '/portal/customer/onboarding') {
+    return <Navigate to="/portal/customer/onboarding" replace />;
+  }
+
+  // Standalone onboarding layout (full focus wizard without sidebar)
+  if (location.pathname === '/portal/customer/onboarding') {
+    return <Outlet />;
+  }
 
   const handleLogout = async () => {
     await logout();
