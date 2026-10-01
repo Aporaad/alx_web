@@ -113,3 +113,9 @@
 - أضيف `PortalGateway` وHTTP implementation خلف `VITE_PORTAL_API_ENABLED` و`VITE_PORTAL_API_BASE_URL`، مع fallback آمن غير مفعل افتراضياً.
 - عُزلت implementation Supabase القديمة في `src/lib/legacy-supabase/supabase.ts` وأصبح `src/lib/supabase.ts` compatibility re-export مؤقتاً.
 - التحقق: `npm run build` ناجح. لا SQL أو تغييرات قاعدة بيانات أو RLS.
+
+## [2026-10-02 01:12:00 +0300] — Portal Gateway consumer — AI Model: Manus
+- أضيف `PortalAnnouncementDto` و`getAnnouncements()` مع HTTP endpoint `/api/v1/portal/announcements`.
+- نُقلت `AnnouncementsPage` من `getCollection` المباشر إلى `portalGateway` و`runQuery`.
+- أضيف `src/contracts/ui.contracts.ts` لعقد AsyncState الخاص بالموقع.
+- التحقق: `npm run build` ناجح، ولا توجد تغييرات SQL أو قاعدة بيانات.

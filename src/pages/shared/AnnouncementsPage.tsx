@@ -2,31 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { Megaphone, Calendar } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { usePortalAuth } from '../../context/PortalAuthContext';
-import { getCollection } from '../../lib/supabase';
-import type { Announcement } from '../../types/portalTypes';
+import { portalGateway } from '../../api';
+import type { PortalAnnouncementDto } from '../../contracts';
+import { asyncState, runQuery, type AsyncState } from '../../contracts';
 
 export default function AnnouncementsPage() {
   const { tr, isRtl } = usePortalTheme();
   const { user } = usePortalAuth();
 
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [queryState, setQueryState] = useState<AsyncState<PortalAnnouncementDto[]>>(asyncState.loading());
+  const announcements = queryState.status === 'success' ? queryState.data : [];
+  const loading = queryState.status === 'loading';
 
   useEffect(() => {
     loadAnnouncements();
   }, [user]);
 
   const loadAnnouncements = async () => {
-    setLoading(true);
-    try {
-      const all = await getCollection('announcements');
-      const active = all.filter(a => a.isActive !== false);
-      active.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-      setAnnouncements(active as Announcement[]);
-    } finally {
-      setLoading(false);
-    }
+    await runQuery(
+      () => portalGateway.getAnnouncements(),
+      setQueryState,
+      (data) => data.length === 0,
+    );
   };
 
   return (
@@ -38,7 +35,7 @@ export default function AnnouncementsPage() {
 
       {loading ? (
         <div className="empty-state"><div className="spinner spinner-lg" /></div>
-      ) : announcements.length === 0 ? (
+      ) : queryState.status === 'empty' ? (
         <div className="empty-state">
           <Megaphone size={40} />
           <p>{tr('noAnnouncements')}</p>

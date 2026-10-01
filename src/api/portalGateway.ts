@@ -1,12 +1,15 @@
 import type {
+  PortalAnnouncementDto,
   PortalUserSessionDto,
   PublicTrackingDto,
   PublicTrackingQuery,
 } from '../contracts/portal.contracts';
+import { getCollection } from '../lib/legacy-supabase/supabase';
 
 export interface PortalGateway {
   getCurrentSession(): Promise<PortalUserSessionDto | null>;
   getPublicTracking(query: PublicTrackingQuery): Promise<PublicTrackingDto | null>;
+  getAnnouncements(): Promise<PortalAnnouncementDto[]>;
 }
 
 export interface PortalGatewayConfig {
@@ -44,7 +47,37 @@ class HttpPortalGateway implements PortalGateway {
     if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
     return response.json() as Promise<PublicTrackingDto | null>;
   }
+
+  async getAnnouncements(): Promise<PortalAnnouncementDto[]> {
+    const response = await fetch(`${this.baseUrl}/api/v1/portal/announcements`, {
+      credentials: 'include',
+      headers: { Accept: 'application/json' },
+    });
+    if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
+    return response.json() as Promise<PortalAnnouncementDto[]>;
+  }
 }
+
+function toAnnouncementDto(value: unknown): PortalAnnouncementDto | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const row = value as Record<string, unknown>;
+  const id = typeof row.id === 'string' ? row.id : '';
+  const title = typeof row.title === 'string' ? row.title : '';
+  const content = typeof row.content === 'string' ? row.content : '';
+  if (!id || !title || !content) return null;
+  const priority = row.priority === 'urgent' || row.priority === 'high' ? row.priority : 'normal';
+  const createdAt = typeof row.createdAt === 'number' ? row.createdAt : Date.now();
+  return { id, title, content, priority, createdAt };
+}
+
+const legacyPortalGateway: PortalGateway = {
+  async getCurrentSession() { return null; },
+  async getPublicTracking() { return null; },
+  async getAnnouncements() {
+    const rows = await getCollection('announcements');
+    return rows.map(toAnnouncementDto).filter((row): row is PortalAnnouncementDto => row !== null);
+  },
+};
 
 /**
  * Legacy implementation is injected lazily to keep Supabase out of new API consumers.
@@ -54,10 +87,7 @@ export function createPortalGateway(
   config: PortalGatewayConfig = portalGatewayConfig(),
 ): PortalGateway {
   if (config.useApi) return new HttpPortalGateway(config.apiBaseUrl);
-  return {
-    async getCurrentSession() { return null; },
-    async getPublicTracking() { return null; },
-  };
+  return legacyPortalGateway;
 }
 
 export const portalGateway = createPortalGateway();

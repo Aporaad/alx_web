@@ -51,3 +51,9 @@
 - [x] عزل Supabase legacy خلف `src/lib/legacy-supabase`.
 - [x] إضافة PortalGateway وfeature flag HTTP مع إبقائه غير مفعل افتراضياً.
 - [ ] نقل أول consumer read-only بعد اعتماد endpoint server contract.
+
+## [2026-10-02 01:12:00 +0300] — المرحلة 13 — AI Model: Manus
+- [x] إضافة `PortalAnnouncementDto` و`getAnnouncements()`.
+- [x] نقل `AnnouncementsPage` إلى PortalGateway و`runQuery`.
+- [x] إضافة عقد AsyncState محلي للموقع.
+- [ ] نقل بقية صفحات portal وإزالة imports المباشرة تدريجياً بعد اعتماد endpoints.

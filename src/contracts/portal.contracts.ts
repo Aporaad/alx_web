@@ -26,6 +26,14 @@ export interface PublicTrackingQuery {
   trackingToken: string;
 }
 
+export interface PortalAnnouncementDto {
+  id: string;
+  title: string;
+  content: string;
+  priority: 'normal' | 'high' | 'urgent';
+  createdAt: number;
+}
+
 export type PortalApiErrorCode =
   | 'PORTAL_API_UNAVAILABLE'
   | 'PORTAL_AUTH_REQUIRED'
