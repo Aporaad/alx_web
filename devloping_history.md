@@ -107,3 +107,9 @@
 - **TypeScript:** `npx tsc --noEmit` → ✅ بدون أخطاء
 - **Clean Code:** التقسيم إلى مكونات صغيرة، تسمية واضحة، تعليقات وصفية
 - **الوصول:** روابط anchor لكل قسم في الـ Navbar
+
+## [2026-10-02 00:56:00 +0300] — بدء Portal Gateway للمرحلة 13 — AI Model: Manus
+- أضيفت عقود `PublicTrackingDto` الخالية من PII و`PortalUserSessionDto` الخالية من الأسرار.
+- أضيف `PortalGateway` وHTTP implementation خلف `VITE_PORTAL_API_ENABLED` و`VITE_PORTAL_API_BASE_URL`، مع fallback آمن غير مفعل افتراضياً.
+- عُزلت implementation Supabase القديمة في `src/lib/legacy-supabase/supabase.ts` وأصبح `src/lib/supabase.ts` compatibility re-export مؤقتاً.
+- التحقق: `npm run build` ناجح. لا SQL أو تغييرات قاعدة بيانات أو RLS.

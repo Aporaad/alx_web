@@ -44,3 +44,10 @@
 - [ ] صفحة "آراء العملاء / Testimonials" في الواجهة الترحيبية
 - [ ] إشعارات البريد الإلكتروني عند تغيير حالة الشحنة
 - [ ] واجهة إدارة التذاكر الكاملة للعملاء
+
+## [2026-10-02 00:56:00 +0300] — المرحلة 13 — AI Model: Manus
+- [x] إنشاء `src/api` و`src/contracts`.
+- [x] إضافة عقود Public Tracking وPortal Session بلا PII أو أسرار.
+- [x] عزل Supabase legacy خلف `src/lib/legacy-supabase`.
+- [x] إضافة PortalGateway وfeature flag HTTP مع إبقائه غير مفعل افتراضياً.
+- [ ] نقل أول consumer read-only بعد اعتماد endpoint server contract.
