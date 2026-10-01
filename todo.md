@@ -57,3 +57,8 @@
 - [x] نقل `AnnouncementsPage` إلى PortalGateway و`runQuery`.
 - [x] إضافة عقد AsyncState محلي للموقع.
 - [ ] نقل بقية صفحات portal وإزالة imports المباشرة تدريجياً بعد اعتماد endpoints.
+
+## [2026-10-02 01:23:00 +0300] — المرحلة 13 — AI Model: Manus
+- [x] إزالة استدعاء Supabase المباشر غير المستخدم من `LandingPage`.
+- [x] التحقق من البناء بعد التنظيف.
+- [ ] متابعة نقل الصفحات التي تحتوي data access فعلي إلى PortalGateway بعد تثبيت DTOs الآمنة.

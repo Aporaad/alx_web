@@ -119,3 +119,8 @@
 - نُقلت `AnnouncementsPage` من `getCollection` المباشر إلى `portalGateway` و`runQuery`.
 - أضيف `src/contracts/ui.contracts.ts` لعقد AsyncState الخاص بالموقع.
 - التحقق: `npm run build` ناجح، ولا توجد تغييرات SQL أو قاعدة بيانات.
+
+## [2026-10-02 01:23:00 +0300] — تنظيف LandingPage ضمن المرحلة 13 — AI Model: Manus
+- أزيل استدعاء `supabase.from('announcements')` غير المستخدم من `LandingPage`، مع حذف state وtype غير المستخدمين.
+- لم يتغير سلوك العرض لأن البيانات لم تكن مستخدمة في JSX.
+- التحقق: `npm run build` ناجح.

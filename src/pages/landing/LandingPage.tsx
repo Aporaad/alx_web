@@ -7,8 +7,6 @@ import {
   Calculator, HelpCircle, ShieldCheck, FileText, ChevronUp, Sparkles, Box, Lock, PlusCircle
 } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../lib/supabase';
-import type { Announcement } from '../../types/portalTypes';
 
 import JobApplicationModal from '../public/JobApplicationModal';
 
@@ -36,7 +34,6 @@ function AnimatedCounter({ target, suffix = '' }: { target: number; suffix?: str
 export default function LandingPage() {
   const { tr, lang, toggleLang, toggleTheme, theme, isRtl } = usePortalTheme();
   const [isJobModalOpen, setIsJobModalOpen] = useState(false);
-  const [announcements, setAnnouncements] = useState<Announcement[]>([]);
   
   // Interactive Calculator State
   const [calcServiceType, setCalcServiceType] = useState<'local' | 'express' | 'factory'>('local');
@@ -45,16 +42,6 @@ export default function LandingPage() {
 
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(0);
-
-  useEffect(() => {
-    supabase.from('announcements')
-      .select('*')
-      .eq('is_active', true)
-      .eq('target_audience', 'all')
-      .order('created_at', { ascending: false })
-      .limit(6)
-      .then(({ data }) => setAnnouncements((data || []) as Announcement[]));
-  }, []);
 
   // Shipping Fee Estimator Calculation
   const estimatedCostResult = React.useMemo(() => {
