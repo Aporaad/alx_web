@@ -29,6 +29,7 @@ export async function getNextAccountCode(
   let maxSeq = 0;
 
   for (const a of allAccounts) {
+    if (a.account_id) existingIds.add(String(a.account_id));
     if (a.id) existingIds.add(String(a.id));
 
     const accCode = String(a.accountCode || a.code || '').trim();
@@ -107,6 +108,7 @@ export async function createFinancialAccountRecord(params: {
   const entityLabel = entityType === 'customer' ? 'العميل' : entityType === 'courier' ? 'المندوب' : 'المورد';
 
   const accountPayload = {
+    account_id: accountId,
     id: accountId,
     accountCode,
     code: accountCode,

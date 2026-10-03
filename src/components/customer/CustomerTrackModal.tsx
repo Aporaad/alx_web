@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import {
   CheckCircle, ShieldAlert, Package, Clock, MapPin,
-  User, Truck, AlertTriangle, FileText, Search, X, CheckCircle2
+  User, Truck, AlertTriangle, FileText, X
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { getCollection, supabase } from '../../lib/supabase';
+import { trackingGateway } from '../../data/gateways/supabase/supabase-tracking.gateway';
+import type { PortalOrder } from '../../types/portalTypes';
 
 interface CustomerTrackModalProps {
   trackingNum: string;
@@ -16,100 +17,52 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
   const { user } = usePortalAuth();
   const { tr, isRtl } = usePortalTheme();
 
-  const [order, setOrder] = useState<any>(null);
+  const [order, setOrder] = useState<PortalOrder | null>(null);
   const [loading, setLoading] = useState(true);
   const [notFound, setNotFound] = useState(false);
   const [accessDenied, setAccessDenied] = useState(false);
-  const [statusMap, setStatusMap] = useState<Record<string, string>>({});
-
-  useEffect(() => {
-    getCollection('order_status').then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        const map: Record<string, string> = {};
-        data.forEach((st: any) => {
-          if (st.nameAr || st.name_ar) {
-            map[st.nameAr || st.name_ar] = st.nameEn || st.name_en || st.nameAr || st.name_ar;
-          }
-        });
-        setStatusMap(map);
-      }
-    }).catch(err => console.error("Error fetching order_status:", err));
-  }, []);
+  const [errorMessage, setErrorMessage] = useState('');
 
   useEffect(() => {
     let isMounted = true;
+
     const findOrder = async () => {
       if (!trackingNum || !user) {
         setLoading(false);
         return;
       }
 
-      const searchVal = trackingNum.trim().toLowerCase();
-
       try {
-        // Query `orders` collection
-        const allOrders = await getCollection('orders');
-        let matched = allOrders.find((ord: any) => {
-          const num = String(ord.orderNumber || '').toLowerCase();
-          const trk = String(ord.trackingNumber || '').toLowerCase();
-          const id = String(ord.id || '').toLowerCase();
-          return num === searchVal || trk === searchVal || id === searchVal || id.slice(0, 10) === searchVal;
+        const result = await trackingGateway.trackOrderSecured(trackingNum, {
+          uid: user.uid,
+          email: user.email,
+          phone: user.phone,
+          linkedAccId: user.linkedAccId || user.linkedCustomerId,
+          fullName: user.fullName,
         });
 
-        // Fallback query to portal_orders if not found in orders
-        if (!matched) {
-          const { data } = await supabase
-            .from('portal_orders')
-            .select('*')
-            .or(`tracking_number.eq.${searchVal},order_number.eq.${searchVal},id.eq.${searchVal}`)
-            .maybeSingle();
-          if (data) matched = data;
-        }
+        if (!isMounted) return;
 
-        if (!matched) {
-          if (isMounted) {
+        if (!result.isOwner) {
+          if (!result.order) {
             setNotFound(true);
-            setLoading(false);
-          }
-          return;
-        }
-
-        // ── STRICT OWNERSHIP CHECK ──────────────────────────────────────────
-        const linkedAccId = (user.linkedAccId || user.linkedCustomerId || '').toLowerCase();
-        const uid = (user.uid || '').toLowerCase();
-        const fullName = (user.fullName || '').trim().toLowerCase();
-        const phone = (user.phone || '').replace(/\s+/g, '').toLowerCase();
-        const email = (user.email || '').toLowerCase();
-
-        const custId = String(matched.customerId || matched.customer_id || '').toLowerCase();
-        const custUid = String(matched.customerUid || matched.customer_uid || matched.user_id || '').toLowerCase();
-        const custName = String(matched.customerName || matched.customer_name || matched.recipient_name || '').trim().toLowerCase();
-        const custPhone = String(matched.customerPhone || matched.customer_phone || matched.phone || '').replace(/\s+/g, '').toLowerCase();
-        const custEmail = String(matched.customerEmail || matched.customer_email || matched.email || '').toLowerCase();
-        const portalUid = String(matched.portalUid || matched.portal_uid || '').toLowerCase();
-
-        const isOwner = (
-          (linkedAccId && (custId === linkedAccId || custUid === linkedAccId)) ||
-          (uid && (custId === uid || custUid === uid || portalUid === uid)) ||
-          (fullName && custName === fullName) ||
-          (phone && phone.length >= 7 && custPhone === phone) ||
-          (email && custEmail === email)
-        );
-
-        if (!isOwner) {
-          if (isMounted) {
+          } else {
             setAccessDenied(true);
-            setLoading(false);
           }
+          setErrorMessage(result.message || '');
+          setLoading(false);
           return;
         }
 
-        if (isMounted) {
-          setOrder(matched);
+        if (result.order) {
+          setOrder(result.order);
+          setLoading(false);
+        } else {
+          setNotFound(true);
           setLoading(false);
         }
       } catch (err) {
-        console.error('[CustomerTrackModal] Error finding order:', err);
+        console.error('[CustomerTrackModal] Error tracking order:', err);
         if (isMounted) {
           setNotFound(true);
           setLoading(false);
@@ -129,8 +82,8 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
     { key: 'delivered',         label: isRtl ? 'تم التسليم' : 'Delivered' },
   ];
 
-  const currentStatusRaw = (order?.orderStatus || order?.status || 'pending').toLowerCase();
-  
+  const currentStatusRaw = (order?.status || 'pending').toLowerCase();
+
   let currentIdx = 0;
   if (currentStatusRaw.includes('تسليم') || currentStatusRaw.includes('delivered')) {
     currentIdx = 4;
@@ -149,7 +102,7 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
       <div className="modal-box animate-scale-in" onClick={e => e.stopPropagation()} style={{ maxWidth: 640 }}>
         <div className="gold-line-top" />
         <div style={{ padding: '1.5rem' }}>
-          
+
           {/* Header */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem', paddingBottom: '0.75rem', borderBottom: '1px solid var(--bg-border)' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
@@ -193,9 +146,9 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
                   {isRtl ? 'رقم التتبع غير موجود' : 'Tracking Number Not Found'}
                 </div>
                 <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0 }}>
-                  {isRtl
+                  {errorMessage || (isRtl
                     ? 'لم يتم العثور على أي شحنة بهذا الرقم. يرجى التأكد من الرقم والمحاولة مجدداً.'
-                    : 'No shipment matches this number. Please check the code and try again.'}
+                    : 'No shipment matches this number. Please check the code and try again.')}
                 </p>
               </div>
             </div>
@@ -216,7 +169,7 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
                 {isRtl ? 'تقييد الوصول وحماية الخصوصية' : 'Access Restricted — Privacy Shield'}
               </h4>
               <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', maxWidth: 420, margin: '0 auto 1.25rem', lineHeight: 1.6 }}>
-                {tr('notYourOrderError')}
+                {errorMessage || tr('notYourOrderError')}
               </p>
               <span className="badge badge-danger" style={{ padding: '0.35rem 0.85rem', fontSize: '0.7rem' }}>
                 🔒 {isRtl ? 'مُتاح فقط للشحنات المرتبطة بحسابك' : 'Only available for your own shipments'}
@@ -227,7 +180,7 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
           {/* Order Details (Owner verified) */}
           {order && !loading && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-              
+
               {/* Timeline Steps */}
               <div className="section-card" style={{ padding: '1.25rem 1rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: 0, position: 'relative' }}>
@@ -275,7 +228,7 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
                     <User size={12} /> {isRtl ? 'اسم المستلم' : 'Recipient Name'}
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                    {order.recipientName || order.recipient_name || order.customerName || '—'}
+                    {order.recipientName || order.customerName || '—'}
                   </div>
                 </div>
 
@@ -284,7 +237,7 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
                     <MapPin size={12} /> {isRtl ? 'المدينة والعنوان' : 'City & Address'}
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--text-primary)' }}>
-                    {order.deliveryCity || order.delivery_city || order.customerAddress || '—'}
+                    {order.deliveryCity || order.recipientAddress || '—'}
                   </div>
                 </div>
 
@@ -302,30 +255,24 @@ export default function CustomerTrackModal({ trackingNum, onClose }: CustomerTra
                     <Truck size={12} /> {isRtl ? 'المندوب المسؤول' : 'Courier Assigned'}
                   </div>
                   <div style={{ fontWeight: 800, fontSize: '0.85rem', color: 'var(--gold)' }}>
-                    {order.courierName || order.courier_name || (isRtl ? 'لم يُحدد بعد' : 'Unassigned')}
+                    {order.courierName || (isRtl ? 'لم يُحدد بعد' : 'Unassigned')}
                   </div>
                 </div>
               </div>
 
-              {/* Goods & Financial Summary */}
+              {/* Goods Details */}
               <div className="section-card" style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.6rem' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid var(--bg-border)', paddingBottom: '0.5rem' }}>
                   <span style={{ fontSize: '0.75rem', fontWeight: 800, color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
                     <FileText size={13} /> {isRtl ? 'تفاصيل البضاعة' : 'Goods Details'}
                   </span>
                   <span className="badge badge-gold" style={{ fontSize: '0.68rem' }}>
-                    {order.orderStatus || order.status || 'معلق'}
+                    {order.status}
                   </span>
                 </div>
                 <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', margin: 0, lineHeight: 1.5 }}>
-                  {order.goodsDescription || order.goods_description || (isRtl ? 'لا يوجد وصف تفصيلي' : 'No description')}
+                  {order.goodsDescription || (isRtl ? 'لا يوجد وصف تفصيلي' : 'No description')}
                 </p>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.4rem', paddingTop: '0.5rem', borderTop: '1px dashed var(--bg-border)', fontSize: '0.82rem' }}>
-                  <span style={{ color: 'var(--text-muted)' }}>{isRtl ? 'إجمالي المتبقي:' : 'Amount Due:'}</span>
-                  <span style={{ fontWeight: 900, color: (order.amountRemaining || 0) > 0 ? '#f87171' : '#34d399' }}>
-                    {(order.amountRemaining || 0).toLocaleString()} YER
-                  </span>
-                </div>
               </div>
 
             </div>

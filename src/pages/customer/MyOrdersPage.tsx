@@ -27,6 +27,7 @@ import {
   getCollection,
   insertDoc
 } from '../../lib/supabase';
+import { ordersGateway } from '../../data/gateways/supabase/supabase-orders.gateway';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -147,37 +148,13 @@ export default function MyOrdersPage({
     if (!user) return;
     setLoadingOrders(true);
     try {
-      // Collect all possible identifiers for this customer
-      const linkedAccId = (user.linkedAccId || user.linkedCustomerId || '').toLowerCase();
-      const uid = (user.uid || '').toLowerCase();
-      const fullName = (user.fullName || '').trim().toLowerCase();
-      const phone = (user.phone || '').replace(/\s+/g, '').toLowerCase();
-      const email = (user.email || '').toLowerCase();
+      const customerUid = user.uid;
+      const customerId = user.linkedAccId || user.linkedCustomerId;
 
-      // Fetch ALL orders once, filter client-side — most reliable approach
-      const allOrders = await getCollection('orders');
-
-      const matched = allOrders.filter((ord: any) => {
-        const custId = String(ord.customerId || '').toLowerCase();
-        const custUid = String(ord.customerUid || '').toLowerCase();
-        const custName = String(ord.customerName || '').trim().toLowerCase();
-        const custPhone = String(ord.customerPhone || '').replace(/\s+/g, '').toLowerCase();
-        const custEmail = String(ord.customerEmail || '').toLowerCase();
-        const portalUid = String(ord.portalUid || '').toLowerCase();
-
-        return (
-          (linkedAccId && (custId === linkedAccId || custUid === linkedAccId)) ||
-          (uid && (custId === uid || custUid === uid || portalUid === uid)) ||
-          (fullName && custName === fullName) ||
-          (phone && phone.length >= 7 && custPhone === phone) ||
-          (email && custEmail === email)
-        );
-      });
-
-      matched.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
-      setOrders(matched);
+      const data = await ordersGateway.getMyOrders({ customerUid, customerId });
+      setOrders(data);
     } catch (err) {
-      console.error('[MyOrdersPage] Error loading orders:', err);
+      console.error('[MyOrdersPage] Error loading orders via Gateway:', err);
     } finally {
       setLoadingOrders(false);
     }

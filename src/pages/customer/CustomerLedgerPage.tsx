@@ -6,6 +6,7 @@ import {
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { supabase, getCollection, getDocById, upsertDoc, updateDocData } from '../../lib/supabase';
+import { ledgerGateway } from '../../data/gateways/supabase/supabase-ledger.gateway';
 import type { LedgerEntry } from '../../types/portalTypes';
 
 export default function CustomerLedgerPage() {
@@ -27,109 +28,36 @@ export default function CustomerLedgerPage() {
   const [paymentSuccess, setPaymentSuccess] = useState(false);
   const [paymentError, setPaymentError] = useState('');
 
-  // Load customer ledger entries
+  // Load customer ledger entries via Gateway
   const loadLedger = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      let custAccId = user.financialAccountId || '';
-      let custAccCode = user.financialAccountCode || '';
-      const linkedAccId = user.linkedAccId || user.linkedCustomerId || '';
-      const uid = user.uid || '';
+      const entityId = user.linkedAccId || user.linkedCustomerId || user.uid;
+      const acc = await ledgerGateway.getAccountByEntity(entityId, 'customer');
 
-      // If financialAccountId is missing from user session state, fetch customer record
-      if (!custAccId || !custAccCode) {
-        if (linkedAccId) {
-          const custDoc = await getDocById('customers', linkedAccId);
-          if (custDoc) {
-            custAccId = custAccId || custDoc.financialAccountId || custDoc.id || '';
-            custAccCode = custAccCode || custDoc.financialAccountCode || '';
-          }
-        }
+      if (acc && acc.accountId) {
+        const clientEntries = await ledgerGateway.getClientLedgerEntries(acc.accountId);
+        setEntries(clientEntries);
+
+        let totalDebit = 0;
+        let totalCredit = 0;
+        clientEntries.forEach(e => {
+          if (e.type === 'debit') totalDebit += e.amount;
+          else totalCredit += e.amount;
+        });
+
+        setStats({
+          debit: totalDebit,
+          credit: totalCredit,
+          balance: acc.balance ?? (totalDebit - totalCredit)
+        });
+      } else {
+        setEntries([]);
+        setStats({ debit: 0, credit: 0, balance: 0 });
       }
-
-      // Fetch all transactions and journal entries
-      const [allTxs, allJvs] = await Promise.all([
-        getCollection('account_transactions'),
-        getCollection('journal_entries')
-      ]);
-
-      const customerIds = new Set<string>(
-        [custAccId, custAccCode, linkedAccId, uid, user.fullName].filter(Boolean)
-      );
-
-      // Filter legs belonging to this customer
-      const clientTxRows = allTxs.filter((r: any) => {
-        const matchAccId = customerIds.has(r.accountId) || customerIds.has(r.entityId);
-        const matchAccCode = custAccCode && (r.accountCode === custAccCode || r.code === custAccCode);
-        const matchDebitCredit = customerIds.has(r.debitAccountId) || customerIds.has(r.creditAccountId);
-        const matchNames = (r.customerName && r.customerName === user.fullName) || (r.entityName && r.entityName === user.fullName);
-        const matchUids = (r.customerUid && r.customerUid === uid) || (r.createdByUid && r.createdByUid === uid && r.entityType === 'customer');
-
-        return matchAccId || matchAccCode || matchDebitCredit || matchNames || matchUids;
-      });
-
-      // Also check journal entries where customer is credit or debit side
-      allJvs.forEach((jv: any) => {
-        const isCustomerDebit = customerIds.has(jv.debitAccountId) || (custAccCode && jv.debitAccountCode === custAccCode);
-        const isCustomerCredit = customerIds.has(jv.creditAccountId) || (custAccCode && jv.creditAccountCode === custAccCode);
-
-        if (isCustomerDebit || isCustomerCredit) {
-          const existsInTx = clientTxRows.some((tx: any) => tx.journalEntryId === jv.id || tx.refNumber === jv.entryNumber);
-          if (!existsInTx) {
-            clientTxRows.push({
-              id: jv.id,
-              journalEntryId: jv.id,
-              voucherNumber: jv.entryNumber,
-              voucherDate: jv.createdAt,
-              type: isCustomerDebit ? 'Debit' : 'Credit',
-              amount: isCustomerDebit ? (jv.amountDebitCurrency || jv.amount) : (jv.amountCreditCurrency || jv.amount),
-              currency: jv.currency || 'YER',
-              description: jv.description || jv.notes || 'قيد محاسبي',
-              refNumber: jv.entryNumber || jv.refNumber,
-              createdAt: jv.createdAt,
-            });
-          }
-        }
-      });
-
-      // Sort by date ascending to compute accurate chronological running balance
-      clientTxRows.sort((a: any, b: any) => (a.createdAt || a.voucherDate || 0) - (b.createdAt || b.voucherDate || 0));
-
-      let running = 0;
-      let totalDebit = 0;
-      let totalCredit = 0;
-
-      const formatted: LedgerEntry[] = clientTxRows.map((r: any) => {
-        const rawType = String(r.type || r.voucherType || '').toLowerCase();
-        const isDebit = rawType === 'debit' || r.voucherType === 'order_charge' || r.debitAccountId === custAccId;
-        const amount = Number(r.amount || r.amountOriginal || r.amountInDefaultCurrency) || 0;
-
-        if (isDebit) {
-          totalDebit += amount;
-          running += amount;
-        } else {
-          totalCredit += amount;
-          running -= amount;
-        }
-
-        return {
-          id: r.id || `entry_${Math.random()}`,
-          date: r.voucherDate || r.createdAt || Date.now(),
-          description: r.description || r.notes || (isDebit ? 'قيد مالي (مدين)' : 'سداد دفعة حساب (دائن)'),
-          refNumber: r.voucherNumber || r.refNumber || r.id?.slice(0, 8) || 'JV-REF',
-          amount,
-          currency: r.currency || r.currencyOriginal || 'YER',
-          type: isDebit ? 'debit' : 'credit',
-          runningBalance: running,
-        };
-      });
-
-      // Display newest entries first
-      setEntries([...formatted].reverse());
-      setStats({ debit: totalDebit, credit: totalCredit, balance: running });
     } catch (err) {
-      console.error('[CustomerLedger] Error loading ledger:', err);
+      console.error('[CustomerLedger] Error loading ledger via Gateway:', err);
     } finally {
       setLoading(false);
     }

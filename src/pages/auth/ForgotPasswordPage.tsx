@@ -19,10 +19,17 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/login`,
-      });
-      if (error) throw error;
+      const emailVal = email.trim().toLowerCase();
+      const { data: userRow } = await supabase
+        .from('portal_users')
+        .select('*')
+        .or(`email.eq.${emailVal},data->>'email'.eq.${emailVal}`)
+        .maybeSingle();
+
+      if (!userRow) {
+        throw new Error(isRtl ? 'لم يتم العثور على حساب بهذا البريد الإلكتروني.' : 'No account found with this email address.');
+      }
+
       setSent(true);
     } catch (err: any) {
       setError(err.message || tr('error'));

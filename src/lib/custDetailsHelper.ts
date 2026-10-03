@@ -79,6 +79,7 @@ export async function saveCustomerDetails(
   };
 
   const row = {
+    cust_detail_id: id,
     id,
     user_uid,
     customer_id: customer_id || null,
@@ -107,7 +108,7 @@ export async function saveCustomerDetails(
     await supabase.from('portal_users').update({
       join_by: join_by || null,
       referrer_id: referrer_id || null,
-    }).eq('id', user_uid);
+    }).eq('portal_user_id', user_uid);
   } catch (err: any) {
     console.warn('[custDetailsHelper] sync to portal_users warning:', err.message);
   }
@@ -123,7 +124,7 @@ export async function saveCustomerDetails(
       await supabase.from('customers').update({
         join_by: join_by || null,
         referrer_id: referrer_id || null,
-      }).eq('id', customer_id);
+      }).eq('customer_id', customer_id);
     } catch (err: any) {
       console.warn('[custDetailsHelper] sync to customers warning:', err.message);
     }
