@@ -72,7 +72,22 @@ function toAnnouncementDto(value: unknown): PortalAnnouncementDto | null {
 
 const legacyPortalGateway: PortalGateway = {
   async getCurrentSession() { return null; },
-  async getPublicTracking() { return null; },
+  async getPublicTracking(query) {
+    const token = query.trackingToken.trim().toLowerCase();
+    if (!token) return null;
+    const rows = await getCollection('orders');
+    const matched = rows.find((value) => {
+      if (typeof value !== 'object' || value === null) return false;
+      const row = value as Record<string, unknown>;
+      return [row.trackingNumber, row.tracking_number, row.orderNumber, row.order_number, row.id]
+        .some((candidate) => typeof candidate === 'string' && candidate.toLowerCase() === token);
+    });
+    if (!matched || typeof matched !== 'object') return null;
+    const row = matched as Record<string, unknown>;
+    const status = typeof row.orderStatus === 'string' ? row.orderStatus : typeof row.status === 'string' ? row.status : 'pending';
+    const occurredAt = typeof row.updatedAt === 'number' ? row.updatedAt : typeof row.updated_at === 'number' ? row.updated_at : null;
+    return { trackingToken: query.trackingToken, status, events: [{ status, occurredAt }], updatedAt: occurredAt };
+  },
   async getAnnouncements() {
     const rows = await getCollection('announcements');
     return rows.map(toAnnouncementDto).filter((row): row is PortalAnnouncementDto => row !== null);

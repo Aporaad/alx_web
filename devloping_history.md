@@ -124,3 +124,9 @@
 - أزيل استدعاء `supabase.from('announcements')` غير المستخدم من `LandingPage`، مع حذف state وtype غير المستخدمين.
 - لم يتغير سلوك العرض لأن البيانات لم تكن مستخدمة في JSX.
 - التحقق: `npm run build` ناجح.
+
+## [2026-10-03 03:44:30 +0300] — إصلاح بوابة التتبع العام — AI Model: Manus
+- تم نقل `CustomerTrackModal` إلى `portalGateway.getPublicTracking` وإزالة Supabase المباشر من المكوّن.
+- أصبح العرض يعتمد على `PublicTrackingDto` ويعرض الحالة والأحداث العامة فقط، دون PII أو رصيد أو عنوان.
+- أضيف fallback legacy محدود يعيد حقول العقد العام فقط.
+- تحقق البناء بنجاح بعد التغيير.

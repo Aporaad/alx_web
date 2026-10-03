@@ -62,3 +62,11 @@
 - [x] إزالة استدعاء Supabase المباشر غير المستخدم من `LandingPage`.
 - [x] التحقق من البناء بعد التنظيف.
 - [ ] متابعة نقل الصفحات التي تحتوي data access فعلي إلى PortalGateway بعد تثبيت DTOs الآمنة.
+
+## [2026-10-03 03:44:30 +0300] — مراجعة المرحلة 13 بعد سحب آخر نسخة — AI Model: Manus
+- [x] مراجعة كل imports واستعلامات Supabase المباشرة في الموقع.
+- [x] نقل CustomerTrackModal إلى PortalGateway بدلاً من القراءة المباشرة من orders/portal_orders.
+- [x] منع عرض الاسم والعنوان والهاتف والرصيد من PublicTracking UI.
+- [x] إضافة fallback legacy محدود إلى PublicTrackingDto دون PII.
+- [x] نجاح `npm run build` و`git diff --check`.
+- [ ] نقل PortalAuthContext وبقية الصفحات إلى Gateway HTTP.
