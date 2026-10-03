@@ -17,6 +17,25 @@ export interface PortalGatewayConfig {
   useApi: boolean;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNullableTimestamp(value: unknown): value is number | null {
+  return value === null || (typeof value === 'number' && Number.isFinite(value));
+}
+
+function isPublicTrackingDto(value: unknown): value is PublicTrackingDto {
+  return isRecord(value)
+    && typeof value.trackingToken === 'string'
+    && typeof value.status === 'string'
+    && isNullableTimestamp(value.updatedAt)
+    && Array.isArray(value.events)
+    && value.events.every((event) => isRecord(event)
+      && typeof event.status === 'string'
+      && isNullableTimestamp(event.occurredAt));
+}
+
 export function portalGatewayConfig(): PortalGatewayConfig {
   const apiBaseUrl = String(import.meta.env.VITE_PORTAL_API_BASE_URL || '').replace(/\/$/, '');
   return {
@@ -28,45 +47,55 @@ export function portalGatewayConfig(): PortalGatewayConfig {
 class HttpPortalGateway implements PortalGateway {
   constructor(private readonly baseUrl: string) {}
 
-  async getCurrentSession(): Promise<PortalUserSessionDto | null> {
-    const response = await fetch(`${this.baseUrl}/api/v1/portal/session`, {
+  private async getData(path: string, notFoundIsNull = false): Promise<unknown | null> {
+    const response = await fetch(`${this.baseUrl}${path}`, {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });
-    if (response.status === 401) return null;
+    if ((response.status === 401 || (notFoundIsNull && response.status === 404))) return null;
     if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
-    return response.json() as Promise<PortalUserSessionDto | null>;
+
+    const payload: unknown = await response.json();
+    if (!isRecord(payload) || payload.success !== true || !('data' in payload)) {
+      throw new Error('PORTAL_API_INVALID_RESPONSE');
+    }
+    return payload.data;
+  }
+
+  async getCurrentSession(): Promise<PortalUserSessionDto | null> {
+    throw new Error('PORTAL_SESSION_API_NOT_IMPLEMENTED');
   }
 
   async getPublicTracking(query: PublicTrackingQuery): Promise<PublicTrackingDto | null> {
-    const response = await fetch(
-      `${this.baseUrl}/api/v1/portal/tracking/${encodeURIComponent(query.trackingToken)}`,
-      { credentials: 'include', headers: { Accept: 'application/json' } },
+    const data = await this.getData(
+      `/api/v1/portal/tracking/${encodeURIComponent(query.trackingToken)}`,
+      true,
     );
-    if (response.status === 404) return null;
-    if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
-    return response.json() as Promise<PublicTrackingDto | null>;
+    if (data === null) return null;
+    if (!isPublicTrackingDto(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
   }
 
   async getAnnouncements(): Promise<PortalAnnouncementDto[]> {
-    const response = await fetch(`${this.baseUrl}/api/v1/portal/announcements`, {
-      credentials: 'include',
-      headers: { Accept: 'application/json' },
-    });
-    if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
-    return response.json() as Promise<PortalAnnouncementDto[]>;
+    const data = await this.getData('/api/v1/portal/announcements');
+    if (data === null) return [];
+    if (!Array.isArray(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    const announcements = data.map(toAnnouncementDto);
+    if (announcements.some((announcement) => announcement === null)) {
+      throw new Error('PORTAL_API_INVALID_RESPONSE');
+    }
+    return announcements.filter((announcement): announcement is PortalAnnouncementDto => announcement !== null);
   }
 }
 
 function toAnnouncementDto(value: unknown): PortalAnnouncementDto | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const row = value as Record<string, unknown>;
-  const id = typeof row.id === 'string' ? row.id : '';
-  const title = typeof row.title === 'string' ? row.title : '';
-  const content = typeof row.content === 'string' ? row.content : '';
+  if (!isRecord(value)) return null;
+  const id = typeof value.id === 'string' ? value.id : '';
+  const title = typeof value.title === 'string' ? value.title : '';
+  const content = typeof value.content === 'string' ? value.content : '';
   if (!id || !title || !content) return null;
-  const priority = row.priority === 'urgent' || row.priority === 'high' ? row.priority : 'normal';
-  const createdAt = typeof row.createdAt === 'number' ? row.createdAt : Date.now();
+  const priority = value.priority === 'urgent' || value.priority === 'high' ? value.priority : 'normal';
+  const createdAt = typeof value.createdAt === 'number' ? value.createdAt : Date.now();
   return { id, title, content, priority, createdAt };
 }
 
@@ -77,15 +106,17 @@ const legacyPortalGateway: PortalGateway = {
     if (!token) return null;
     const rows = await getCollection('orders');
     const matched = rows.find((value) => {
-      if (typeof value !== 'object' || value === null) return false;
-      const row = value as Record<string, unknown>;
-      return [row.trackingNumber, row.tracking_number, row.orderNumber, row.order_number, row.id]
+      if (!isRecord(value)) return false;
+      return [value.trackingNumber, value.tracking_number]
         .some((candidate) => typeof candidate === 'string' && candidate.toLowerCase() === token);
     });
-    if (!matched || typeof matched !== 'object') return null;
-    const row = matched as Record<string, unknown>;
-    const status = typeof row.orderStatus === 'string' ? row.orderStatus : typeof row.status === 'string' ? row.status : 'pending';
-    const occurredAt = typeof row.updatedAt === 'number' ? row.updatedAt : typeof row.updated_at === 'number' ? row.updated_at : null;
+    if (!matched) return null;
+    const status = typeof matched.orderStatus === 'string'
+      ? matched.orderStatus
+      : typeof matched.status === 'string' ? matched.status : 'pending';
+    const occurredAt = typeof matched.updatedAt === 'number'
+      ? matched.updatedAt
+      : typeof matched.updated_at === 'number' ? matched.updated_at : null;
     return { trackingToken: query.trackingToken, status, events: [{ status, occurredAt }], updatedAt: occurredAt };
   },
   async getAnnouncements() {
@@ -94,10 +125,7 @@ const legacyPortalGateway: PortalGateway = {
   },
 };
 
-/**
- * Legacy implementation is injected lazily to keep Supabase out of new API consumers.
- * It is intentionally not enabled until the HTTP endpoints are deployed and verified.
- */
+/** Legacy remains a deliberate opt-out while auth and remaining Portal features are migrated. */
 export function createPortalGateway(
   config: PortalGatewayConfig = portalGatewayConfig(),
 ): PortalGateway {

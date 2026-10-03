@@ -70,3 +70,11 @@
 - [x] إضافة fallback legacy محدود إلى PublicTrackingDto دون PII.
 - [x] نجاح `npm run build` و`git diff --check`.
 - [ ] نقل PortalAuthContext وبقية الصفحات إلى Gateway HTTP.
+
+
+## [2026-10-04T02:00:08+03:00] — Portal HTTP Gateway وتهيئة API — AI Model: Manus
+- [x] تحديث HTTP Gateway لقراءة envelopes وتحقق DTOs runtime للإعلانات والتتبع.
+- [x] إضافة خمس اختبارات Gateway: envelopes، 404، ترميز token، رفض الاستجابة المشوهة، وfeature flag.
+- [x] نجاح `npm run check` و`npm test` و`npm run audit:portal-boundary` و`npm run build`.
+- [ ] بقية الـPortal Auth والعمليات/الصفحات ما تزال على Supabase/legacy؛ feature flag يبقى معطلاً حتى نشر backend-compatible routes واعتماد auth flow.
+- التفاصيل في المستودع المرتبط `Aporaad/swiftship/docs/pre-api/repair-execution-and-api-scaffold-2026-10-04.md`.

@@ -130,3 +130,7 @@
 - أصبح العرض يعتمد على `PublicTrackingDto` ويعرض الحالة والأحداث العامة فقط، دون PII أو رصيد أو عنوان.
 - أضيف fallback legacy محدود يعيد حقول العقد العام فقط.
 - تحقق البناء بنجاح بعد التغيير.
+
+
+## [2026-10-04T02:00:08+03:00] — استكمال HTTP read gateway — AI Model: Manus
+تم تعديل `src/api/portalGateway.ts` لاستهلاك success envelope والتحقق runtime من DTOs للإعلانات والتتبع، مع ترميز tracking token، واختبار gateway (`src/api/portalGateway.test.ts`). أضيفت إعدادات `.env.example` مع إبقاء `VITE_PORTAL_API_ENABLED=false` حتى نشر الـroutes؛ جرى إضافة `check` و`test` scripts واعتماد Vitest. تحقق TypeScript والاختبارات الخمسة وبوابة imports والبناء جميعها ناجحة. لا يزال `PortalAuthContext` وبقية CRUD/read routes غير منقولة؛ هذا تحسين انتقالي وليس اكتمال مرحلة Portal.

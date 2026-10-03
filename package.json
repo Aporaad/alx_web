@@ -6,7 +6,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite --port 5174",
+    "check": "tsc -b --pretty false",
     "build": "tsc -b && vite build",
+    "test": "vitest run",
     "start": "cross-env NODE_ENV=production vite preview --host 0.0.0.0",
     "preview": "vite preview",
     "audit:portal-boundary": "node scripts/check-portal-boundary.mjs"
@@ -27,6 +29,7 @@
     "@vitejs/plugin-react": "^5.0.4",
     "cross-env": "^10.1.0",
     "typescript": "~5.8.2",
-    "vite": "^6.2.3"
+    "vite": "^6.2.3",
+    "vitest": "^5.0.3"
   }
 }
