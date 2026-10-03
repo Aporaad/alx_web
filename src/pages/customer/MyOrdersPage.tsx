@@ -26,7 +26,7 @@ import { usePortalTheme } from '../../context/PortalThemeContext';
 import {
   getCollection,
   insertDoc
-} from '../../lib/supabase';
+} from '../../api/legacy-portal';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { MessageSquare, PlusCircle, Send, X } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { queryCollection, insertDoc } from '../../lib/supabase';
+import { queryCollection, insertDoc } from '../../api/legacy-portal';
 import type { PortalTicket, TicketType } from '../../types/portalTypes';
 
 export default function SupportTicketsPage() {

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Download, TrendingUp, CheckCircle } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../api/legacy-portal';
 
 export default function CourierLedgerPage() {
   const { user } = usePortalAuth();

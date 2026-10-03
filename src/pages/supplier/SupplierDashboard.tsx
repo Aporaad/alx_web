@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Factory, Package, Layers, DollarSign, ArrowRight, ArrowLeft } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../api/legacy-portal';
 import type { SupplierOrder } from '../../types/portalTypes';
 
 export default function SupplierDashboard() {

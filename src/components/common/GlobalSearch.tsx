@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Search, X, Package, FileText, Megaphone } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { usePortalAuth } from '../../context/PortalAuthContext';
-import { supabase, extractRows } from '../../lib/supabase';
+import { supabase, extractRows } from '../../api/legacy-portal';
 
 interface SearchResult {
   id: string;

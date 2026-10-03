@@ -5,7 +5,7 @@ import {
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase, getCollection, getDocById, upsertDoc, updateDocData } from '../../lib/supabase';
+import { supabase, getCollection, getDocById, upsertDoc, updateDocData } from '../../api/legacy-portal';
 import type { LedgerEntry } from '../../types/portalTypes';
 
 export default function CustomerLedgerPage() {

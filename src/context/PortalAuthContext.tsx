@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { supabase, getDocById, upsertDoc, updateDocData, getCollection } from '../lib/supabase';
+import { supabase, getDocById, upsertDoc, updateDocData, getCollection } from '../api/legacy-portal';
 import { getNextAccountCode, createFinancialAccountRecord } from '../lib/financialAccountHelper';
 import type { PortalUser, PortalRole, ApprovalStatus, RegisterFormData, CustomerDetails } from '../types/portalTypes';
 import { getCustomerDetails, saveCustomerDetails as saveCustDetailsHelper } from '../lib/custDetailsHelper';

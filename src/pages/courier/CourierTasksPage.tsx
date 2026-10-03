@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Truck, MapPin, Phone, CheckCircle, XCircle, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { queryByDataField, updateDocData } from '../../lib/supabase';
+import { queryByDataField, updateDocData } from '../../api/legacy-portal';
 import type { CourierTask, OrderStatus } from '../../types/portalTypes';
 
 export default function CourierTasksPage() {

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { Truck, CheckCircle2, DollarSign, Clock, MapPin, Phone, MessageCircle } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../api/legacy-portal';
 import type { CourierTask } from '../../types/portalTypes';
 
 export default function CourierDashboard() {

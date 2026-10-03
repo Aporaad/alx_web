@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../lib/supabase';
+import { supabase } from '../../api/legacy-portal';
 
 export default function ForgotPasswordPage() {
   const { tr, isRtl } = usePortalTheme();

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Briefcase, X, CheckCircle2, User, Phone, Mail, MapPin, Award, Clock, FileText, Send, AlertCircle } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { insertDoc } from '../../lib/supabase';
+import { insertDoc } from '../../api/legacy-portal';
 
 interface JobApplicationModalProps {
   isOpen: boolean;

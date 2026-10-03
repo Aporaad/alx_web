@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Factory, Edit3, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { queryCollection, updateDocData } from '../../lib/supabase';
+import { queryCollection, updateDocData } from '../../api/legacy-portal';
 import type { SupplierOrder, SupplierOrderStage } from '../../types/portalTypes';
 
 export default function SupplierOrdersPage() {

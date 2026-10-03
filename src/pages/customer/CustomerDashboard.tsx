@@ -6,7 +6,7 @@ import {
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { getCollection } from '../../lib/supabase';
+import { getCollection } from '../../api/legacy-portal';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // Dynamic status color helper
