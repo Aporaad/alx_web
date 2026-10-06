@@ -7,13 +7,41 @@ import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { getCollection, getDocById } from '../../api/legacy-portal';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import type { PortalPaymentRequestDto } from '../../api/portalAuthGateway';
+import type { PortalLedgerEntryDto, PortalPaymentRequestDto } from '../../api/portalAuthGateway';
 import type { LedgerEntry } from '../../types/portalTypes';
 
 function createPaymentRequestIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `portal-payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
+function isLedgerApiEnabled(): boolean {
+  return import.meta.env.VITE_PORTAL_LEDGER_API_ENABLED === 'true';
+}
+
+function mapPortalLedger(entries: PortalLedgerEntryDto[]): { entries: LedgerEntry[]; debit: number; credit: number; balance: number } {
+  const chronological = [...entries].reverse();
+  let debit = 0;
+  let credit = 0;
+  let balance = 0;
+  const formatted = chronological.map((entry) => {
+    const isDebit = entry.transType.toLowerCase() === 'debit';
+    const amount = Number(entry.amountOriginal) || 0;
+    if (isDebit) { debit += amount; balance += amount; }
+    else { credit += amount; balance -= amount; }
+    return {
+      id: entry.transactionId,
+      date: entry.createdAt,
+      description: entry.description || entry.note || 'قيد مالي',
+      refNumber: entry.entryNumber,
+      amount,
+      currency: 'YER',
+      type: isDebit ? 'debit' : 'credit',
+      runningBalance: balance,
+    } satisfies LedgerEntry;
+  });
+  return { entries: formatted.reverse(), debit, credit, balance };
 }
 
 export default function CustomerLedgerPage() {
@@ -49,6 +77,17 @@ export default function CustomerLedgerPage() {
       }
     } else {
       setPaymentRequests([]);
+    }
+    if (portalAuthGateway && isLedgerApiEnabled()) {
+      try {
+        const mapped = mapPortalLedger(await portalAuthGateway.listCustomerLedger());
+        setEntries(mapped.entries);
+        setStats({ debit: mapped.debit, credit: mapped.credit, balance: mapped.balance });
+        setLoading(false);
+        return;
+      } catch (error) {
+        console.error('[CustomerLedger] API ledger read failed; using legacy fallback:', error);
+      }
     }
     try {
       let custAccId = user.financialAccountId || '';

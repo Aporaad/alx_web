@@ -48,6 +48,21 @@ export interface PortalPaymentRequestInput {
   notes?: string;
 }
 
+export interface PortalLedgerEntryDto {
+  transactionId: string;
+  entryId: string;
+  entryNumber: string;
+  transType: string;
+  accountId: string;
+  amount: number;
+  amountOriginal: number;
+  currencyOriginalNo: number;
+  paymentMethod?: string;
+  description?: string;
+  note?: string;
+  createdAt: number;
+}
+
 export type PortalCustomerDetailsDto = CustomerDetails;
 export type PortalCustomerDetailsUpdateInput = Partial<Pick<
   CustomerDetails,
@@ -148,6 +163,7 @@ export interface PortalAuthGateway {
   listCustomerOrders(): Promise<PortalOrderDto[]>;
   createCustomerOrder(input: PortalOrderCreateInput, idempotencyKey: string): Promise<PortalOrderDto>;
   listPaymentRequests(): Promise<PortalPaymentRequestDto[]>;
+  listCustomerLedger(): Promise<PortalLedgerEntryDto[]>;
   createPaymentRequest(input: PortalPaymentRequestInput, idempotencyKey: string): Promise<PortalPaymentRequestDto>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
@@ -365,6 +381,12 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return data;
   }
 
+  async listCustomerLedger(): Promise<PortalLedgerEntryDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/ledger');
+    if (!Array.isArray(data) || !data.every(isPortalLedgerEntry)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
   async createPaymentRequest(
     input: PortalPaymentRequestInput,
     idempotencyKey: string,
@@ -443,6 +465,22 @@ function isPortalPaymentRequest(value: unknown): value is PortalPaymentRequestDt
       (key) => value[key] === undefined || (key === 'reviewedAt'
         ? typeof value[key] === 'number'
         : typeof value[key] === 'string'),
+    );
+}
+
+function isPortalLedgerEntry(value: unknown): value is PortalLedgerEntryDto {
+  return isRecord(value)
+    && typeof value.transactionId === 'string'
+    && typeof value.entryId === 'string'
+    && typeof value.entryNumber === 'string'
+    && typeof value.transType === 'string'
+    && typeof value.accountId === 'string'
+    && typeof value.amount === 'number'
+    && typeof value.amountOriginal === 'number'
+    && typeof value.currencyOriginalNo === 'number'
+    && typeof value.createdAt === 'number'
+    && ['paymentMethod', 'description', 'note'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string',
     );
 }
 
