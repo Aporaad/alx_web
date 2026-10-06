@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import { supabase, getDocById, upsertDoc, updateDocData, getCollection } from '../api/legacy-portal';
+import { portalAuthGateway } from '../api/portalAuthGateway';
+import type { PortalAuthProfileDto } from '../api/portalAuthGateway';
 import { getNextAccountCode, createFinancialAccountRecord } from '../lib/financialAccountHelper';
 import type { PortalUser, PortalRole, ApprovalStatus, RegisterFormData, CustomerDetails } from '../types/portalTypes';
 import { getCustomerDetails, saveCustomerDetails as saveCustDetailsHelper } from '../lib/custDetailsHelper';
@@ -22,6 +24,22 @@ interface PortalAuthContextType {
 
 const PortalAuthContext = createContext<PortalAuthContextType | null>(null);
 const SESSION_KEY = 'alx_portal_user_profile';
+
+function toPortalUser(profile: PortalAuthProfileDto, previous: PortalUser | null = null): PortalUser {
+  return {
+    ...previous,
+    uid: profile.portalUserId,
+    username: profile.username,
+    email: profile.email,
+    fullName: profile.fullName,
+    phone: profile.phone,
+    portalRole: profile.role,
+    approvalStatus: profile.approvalStatus,
+    onboardingCompleted: profile.onboardingCompleted,
+    createdAt: previous?.createdAt ?? Date.now(),
+    updatedAt: Date.now(),
+  };
+}
 
 // ─── Helper: derive a safe username ─────────────────────────────────────────
 function deriveUsername(email: string, fullName?: string): string {
@@ -132,6 +150,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const initAuth = async () => {
       try {
+        if (portalAuthGateway) {
+          const profile = await portalAuthGateway.getProfile();
+          if (profile) persistProfile(toPortalUser(profile));
+          return;
+        }
         const { data } = await supabase.auth.getSession();
         if (data.session?.user) {
           const u = data.session.user;
@@ -145,8 +168,12 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       }
     };
 
-    initAuth();
+    if (portalAuthGateway) {
+      void initAuth();
+      return;
+    }
 
+    void initAuth();
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
@@ -165,6 +192,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const login = useCallback(async (identifier: string, password: string) => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const profile = await portalAuthGateway.login(identifier.trim(), password);
+        persistProfile(toPortalUser(profile, user));
+        return;
+      }
       let email = identifier.trim().toLowerCase();
 
       if (!email.includes('@')) {
@@ -218,7 +250,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setLoading(false);
     }
-  }, [fetchPortalProfile, persistProfile]);
+  }, [fetchPortalProfile, persistProfile, user]);
 
   // ── Register: atomic creation of entity + financial account + portal user ────
   const register = useCallback(async (formData: RegisterFormData): Promise<{ pendingApproval: boolean }> => {
@@ -432,7 +464,8 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     try {
-      await supabase.auth.signOut();
+      if (portalAuthGateway) await portalAuthGateway.logout();
+      else await supabase.auth.signOut();
     } catch (_) { }
     setUser(null);
     localStorage.removeItem(SESSION_KEY);
@@ -440,6 +473,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const refreshUser = useCallback(async () => {
+    if (portalAuthGateway) {
+      const profile = await portalAuthGateway.getProfile();
+      if (profile) persistProfile(toPortalUser(profile, user));
+      return;
+    }
     const { data } = await supabase.auth.getUser();
     if (!data.user) return;
     const profile = await fetchPortalProfile(
@@ -448,7 +486,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       data.user.user_metadata?.fullName
     );
     if (profile) persistProfile(profile);
-  }, [fetchPortalProfile, persistProfile]);
+  }, [fetchPortalProfile, persistProfile, user]);
 
   const updateProfile = useCallback(async (updates: Partial<PortalUser>) => {
     if (!user) return;
@@ -502,7 +540,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     return result;
   }, [user, persistProfile]);
 
-  const changePassword = useCallback(async (_currentPassword: string, newPassword: string) => {
+  const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
+    if (portalAuthGateway) {
+      await portalAuthGateway.changePassword(currentPassword, newPassword);
+      return;
+    }
     const { error } = await supabase.auth.updateUser({ password: newPassword });
     if (error) throw new Error(error.message || 'فشل تغيير كلمة المرور. يرجى المحاولة مجدداً.');
   }, []);
