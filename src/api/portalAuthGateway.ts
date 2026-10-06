@@ -11,6 +11,21 @@ export interface PortalAuthProfileDto {
   onboardingCompleted: boolean;
 }
 
+export interface PortalRegistrationInput {
+  fullName: string;
+  phone: string;
+  email: string;
+  password: string;
+  portalRole: PortalRole;
+  username?: string;
+}
+
+export interface PortalRegistrationResult {
+  profile: PortalAuthProfileDto;
+  pendingApproval: boolean;
+  tokens: PortalAuthTokenPairDto | null;
+}
+
 interface PortalAuthTokenPairDto {
   accessToken: string;
   refreshToken: string;
@@ -20,7 +35,9 @@ interface PortalAuthTokenPairDto {
 
 export interface PortalAuthGateway {
   login(identifier: string, password: string): Promise<PortalAuthProfileDto>;
+  register(input: PortalRegistrationInput): Promise<PortalRegistrationResult>;
   getProfile(): Promise<PortalAuthProfileDto | null>;
+  updateProfile(input: Partial<Pick<PortalAuthProfileDto, 'fullName' | 'phone' | 'email'>>): Promise<PortalAuthProfileDto>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
 }
@@ -147,8 +164,22 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return profile;
   }
 
+  async register(input: PortalRegistrationInput): Promise<PortalRegistrationResult> {
+    const data = await this.request('/api/v1/portal/auth/register', { method: 'POST', body: JSON.stringify(input) });
+    if (!isRecord(data) || !isProfile(data.profile) || typeof data.pendingApproval !== 'boolean' || (data.tokens !== null && !isTokenPair(data.tokens))) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    if (data.tokens) writeTokens(data.tokens);
+    return { profile: data.profile, pendingApproval: data.pendingApproval, tokens: data.tokens };
+  }
+
   async getProfile(): Promise<PortalAuthProfileDto | null> {
     return this.getProfileWithRefresh();
+  }
+
+  async updateProfile(input: Partial<Pick<PortalAuthProfileDto, 'fullName' | 'phone' | 'email'>>): Promise<PortalAuthProfileDto> {
+    let data = await this.request('/api/v1/portal/auth/profile', { method: 'PATCH', body: JSON.stringify(input) }, true);
+    if (data === null && await this.refresh()) data = await this.request('/api/v1/portal/auth/profile', { method: 'PATCH', body: JSON.stringify(input) });
+    if (!isProfile(data)) throw new Error(data === null ? 'PORTAL_AUTH_REQUIRED' : 'PORTAL_API_INVALID_RESPONSE');
+    return data;
   }
 
   async logout(): Promise<void> {

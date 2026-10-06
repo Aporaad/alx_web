@@ -258,6 +258,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     try {
       const email = formData.email.trim().toLowerCase();
       const password = formData.password;
+      if (portalAuthGateway && import.meta.env.VITE_PORTAL_REGISTRATION_API_ENABLED === 'true') {
+        const result = await portalAuthGateway.register({ fullName: formData.fullName.trim(), phone: formData.phone.trim(), email, password, portalRole: formData.portalRole, username: deriveUsername(email, formData.fullName) });
+        if (!result.pendingApproval) persistProfile(toPortalUser(result.profile));
+        return { pendingApproval: result.pendingApproval };
+      }
       const fullName = formData.fullName.trim();
       const phone = formData.phone.trim();
       const address = (formData.address || '').trim();
@@ -492,6 +497,17 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     if (!user) return;
 
     const updatedAt = Date.now();
+    if (portalAuthGateway && import.meta.env.VITE_PORTAL_PROFILE_API_ENABLED === 'true') {
+      const apiUpdates = {
+        ...(updates.fullName ? { fullName: updates.fullName } : {}),
+        ...(updates.phone ? { phone: updates.phone } : {}),
+        ...(updates.email ? { email: updates.email } : {}),
+      };
+      if (Object.keys(apiUpdates).length > 0) {
+        const profile = await portalAuthGateway.updateProfile(apiUpdates);
+        persistProfile(toPortalUser(profile, user));
+      }
+    }
     await updateDocData('portal_users', user.uid, { ...updates, updatedAt });
 
     const syncFields = {
