@@ -173,4 +173,27 @@ describe('Portal Auth API Gateway', () => {
     expect(orderUrl).toBe('https://api.example.test/api/v1/portal/orders');
     expect(new Headers(orderRequest?.headers).get('Idempotency-Key')).toBe('portal-order-test-001');
   });
+
+  it('submits and lists pending payment claims through the API without client-owned account identifiers', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'portal-access');
+    const paymentRequest = {
+      id: '8a51baec-c6ea-457a-a1ae-bfb754a14f01', amount: 250, currency: 'YER',
+      paymentMethod: 'transfer', status: 'pending_verification', createdAt: 1,
+    };
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(200, { success: true, data: [paymentRequest] }))
+      .mockResolvedValueOnce(jsonResponse(201, { success: true, data: paymentRequest }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.listPaymentRequests()).resolves.toMatchObject([{ id: paymentRequest.id, status: 'pending_verification' }]);
+    await expect(gateway?.createPaymentRequest({ amount: 250, currency: 'YER', paymentMethod: 'transfer' }, 'pay-request-test-001'))
+      .resolves.toMatchObject({ id: paymentRequest.id, status: 'pending_verification' });
+
+    const [url, request] = fetchMock.mock.calls[1] ?? [];
+    expect(url).toBe('https://api.example.test/api/v1/portal/payment-requests');
+    expect(request?.method).toBe('POST');
+    expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer portal-access');
+    expect(new Headers(request?.headers).get('Idempotency-Key')).toBe('pay-request-test-001');
+    expect(JSON.parse(String(request?.body))).not.toHaveProperty('financialAccountId');
+  });
 });

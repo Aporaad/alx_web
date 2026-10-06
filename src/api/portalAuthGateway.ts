@@ -26,6 +26,28 @@ export interface PortalOrderDto {
   [customerVisibleField: string]: unknown;
 }
 
+export interface PortalPaymentRequestDto {
+  id: string;
+  amount: number;
+  currency: 'YER' | 'USD' | 'SAR';
+  paymentMethod: 'cash' | 'transfer' | 'wallet' | 'check';
+  reference?: string;
+  notes?: string;
+  status: 'pending_verification' | 'settled' | 'rejected';
+  financeEntryId?: string;
+  reviewNote?: string;
+  createdAt: number;
+  reviewedAt?: number;
+}
+
+export interface PortalPaymentRequestInput {
+  amount: number;
+  currency: PortalPaymentRequestDto['currency'];
+  paymentMethod: PortalPaymentRequestDto['paymentMethod'];
+  reference?: string;
+  notes?: string;
+}
+
 export type PortalCustomerDetailsDto = CustomerDetails;
 export type PortalCustomerDetailsUpdateInput = Partial<Pick<
   CustomerDetails,
@@ -125,6 +147,8 @@ export interface PortalAuthGateway {
   createTicket(input: { type: PortalTicketType; subject: string; message: string }): Promise<PortalTicketDto>;
   listCustomerOrders(): Promise<PortalOrderDto[]>;
   createCustomerOrder(input: PortalOrderCreateInput, idempotencyKey: string): Promise<PortalOrderDto>;
+  listPaymentRequests(): Promise<PortalPaymentRequestDto[]>;
+  createPaymentRequest(input: PortalPaymentRequestInput, idempotencyKey: string): Promise<PortalPaymentRequestDto>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
 }
@@ -335,6 +359,25 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return data;
   }
 
+  async listPaymentRequests(): Promise<PortalPaymentRequestDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/payment-requests');
+    if (!Array.isArray(data) || !data.every(isPortalPaymentRequest)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async createPaymentRequest(
+    input: PortalPaymentRequestInput,
+    idempotencyKey: string,
+  ): Promise<PortalPaymentRequestDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/payment-requests', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(input),
+    });
+    if (!isPortalPaymentRequest(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
   async logout(): Promise<void> {
     const refreshToken = read(REFRESH_TOKEN_KEY);
     try {
@@ -385,6 +428,22 @@ function isPortalOrder(value: unknown): value is PortalOrderDto {
     && typeof value.status === 'string'
     && typeof value.orderStatus === 'string'
     && typeof value.createdAt === 'number';
+}
+
+function isPortalPaymentRequest(value: unknown): value is PortalPaymentRequestDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.amount === 'number'
+    && (value.currency === 'YER' || value.currency === 'USD' || value.currency === 'SAR')
+    && (value.paymentMethod === 'cash' || value.paymentMethod === 'transfer'
+      || value.paymentMethod === 'wallet' || value.paymentMethod === 'check')
+    && (value.status === 'pending_verification' || value.status === 'settled' || value.status === 'rejected')
+    && typeof value.createdAt === 'number'
+    && ['reference', 'notes', 'financeEntryId', 'reviewNote', 'reviewedAt'].every(
+      (key) => value[key] === undefined || (key === 'reviewedAt'
+        ? typeof value[key] === 'number'
+        : typeof value[key] === 'string'),
+    );
 }
 
 function isPortalCustomerDetails(value: unknown): value is PortalCustomerDetailsDto {
