@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import {
   getCollection,
   insertDoc
@@ -147,6 +148,10 @@ export default function MyOrdersPage({
     if (!user) return;
     setLoadingOrders(true);
     try {
+      if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_ORDERS_API_ENABLED === 'true') {
+        setOrders(await portalAuthGateway.listCustomerOrders());
+        return;
+      }
       // Collect all possible identifiers for this customer
       const linkedAccId = (user.linkedAccId || user.linkedCustomerId || '').toLowerCase();
       const uid = (user.uid || '').toLowerCase();
@@ -392,7 +397,21 @@ export default function MyOrdersPage({
         updatedAt: now,
       };
 
-      await insertDoc('orders', orderId, payload);
+      if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_ORDERS_API_ENABLED === 'true') {
+        await portalAuthGateway.createCustomerOrder({
+          ...(orderSourceId ? { orderSourceId } : {}),
+          ...(externalOrderNumber ? { externalOrderNumber } : {}),
+          ...(cartShareCode ? { cartShareCode } : {}),
+          items: validItems.map(({ id: _itemId, ...item }) => item),
+          packagingType,
+          isUrgent,
+          packageType: isUrgent ? 'express' : 'standard',
+          paymentMethod,
+          ...(notes.trim() ? { notes: notes.trim() } : {}),
+        }, `portal-order:${crypto.randomUUID()}`);
+      } else {
+        await insertDoc('orders', orderId, payload);
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -840,16 +859,24 @@ export default function MyOrdersPage({
                     </div>
                   </div>
 
-                  <div className="form-group" style={{ margin: 0 }}>
-                    <label className="form-label" style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                      <CreditCard size={13} />
-                      {isRtl ? 'الدفعة المقدمة / كاش الآن (ريال يمني)' : 'Down Payment / Cash Now (YER)'}
-                    </label>
-                    <input type="number" min="0" step="500" className="form-input" dir="ltr"
-                      value={amountPaidYER || ''}
-                      onChange={e => setAmountPaidYER(parseFloat(e.target.value) || 0)}
-                      placeholder="0 YER" />
-                  </div>
+                  {portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_ORDERS_API_ENABLED === 'true' ? (
+                    <div role="note" className="alert alert-info" style={{ margin: 0 }}>
+                      {isRtl
+                        ? 'لا تُسجّل هذه الخطوة دفعة مالية؛ تُراجع الطلبات أولاً ويُعتمد أي تحصيل عبر النظام المالي.'
+                        : 'No payment is recorded here. Orders are reviewed first; any collection is posted through the finance system.'}
+                    </div>
+                  ) : (
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label className="form-label" style={{ color: '#34d399', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                        <CreditCard size={13} />
+                        {isRtl ? 'الدفعة المقدمة / كاش الآن (ريال يمني)' : 'Down Payment / Cash Now (YER)'}
+                      </label>
+                      <input type="number" min="0" step="500" className="form-input" dir="ltr"
+                        value={amountPaidYER || ''}
+                        onChange={e => setAmountPaidYER(parseFloat(e.target.value) || 0)}
+                        placeholder="0 YER" />
+                    </div>
+                  )}
 
                   <div>
                     <div style={{ fontSize: '0.7rem', color: '#f87171', textTransform: 'uppercase', fontWeight: 700, marginBottom: '0.3rem' }}>
@@ -1000,10 +1027,10 @@ export default function MyOrdersPage({
                   </div>
                 )}
 
-                {detailsOrder.notes && (
+                {(detailsOrder.customerNote || detailsOrder.notes) && (
                   <div className="section-card" style={{ fontSize: '0.8rem' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{isRtl ? 'ملاحظات:' : 'Notes:'}</span>
-                    <p style={{ margin: '0.25rem 0 0', fontWeight: 600 }}>{detailsOrder.notes}</p>
+                    <p style={{ margin: '0.25rem 0 0', fontWeight: 600 }}>{detailsOrder.customerNote || detailsOrder.notes}</p>
                   </div>
                 )}
               </div>

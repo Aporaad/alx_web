@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { supabase, getDocById, upsertDoc, updateDocData, getCollection } from '../api/legacy-portal';
+import { getDocById, upsertDoc, updateDocData, getCollection } from '../api/legacy-portal';
+import { legacyPortalAuth } from '../api/legacyPortalAuth';
 import { portalAuthGateway } from '../api/portalAuthGateway';
 import type { PortalAuthProfileDto } from '../api/portalAuthGateway';
 import { getNextAccountCode, createFinancialAccountRecord } from '../lib/financialAccountHelper';
@@ -36,6 +37,16 @@ function toPortalUser(profile: PortalAuthProfileDto, previous: PortalUser | null
     portalRole: profile.role,
     approvalStatus: profile.approvalStatus,
     onboardingCompleted: profile.onboardingCompleted,
+    ...(profile.address !== undefined ? { address: profile.address } : {}),
+    ...(profile.linkedAccId !== undefined ? { linkedAccId: profile.linkedAccId } : {}),
+    ...(profile.linkedCustomerId !== undefined ? { linkedCustomerId: profile.linkedCustomerId } : {}),
+    ...(profile.linkedCourierId !== undefined ? { linkedCourierId: profile.linkedCourierId } : {}),
+    ...(profile.linkedSourceId !== undefined ? { linkedSourceId: profile.linkedSourceId } : {}),
+    ...(profile.financialAccountId !== undefined ? { financialAccountId: profile.financialAccountId } : {}),
+    ...(profile.financialAccountCode !== undefined ? { financialAccountCode: profile.financialAccountCode } : {}),
+    ...(profile.financialCurrency !== undefined ? { financialCurrency: profile.financialCurrency } : {}),
+    ...(profile.joinBy !== undefined ? { joinBy: profile.joinBy } : {}),
+    ...(profile.referrerId !== undefined ? { referrerId: profile.referrerId } : {}),
     createdAt: previous?.createdAt ?? Date.now(),
     updatedAt: Date.now(),
   };
@@ -70,6 +81,10 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   const loadCustDetails = useCallback(async (uid: string) => {
     try {
+      if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_DETAILS_API_ENABLED === 'true') {
+        setCustomerDetails(await portalAuthGateway.getCustomerDetails());
+        return;
+      }
       const details = await getCustomerDetails(uid);
       setCustomerDetails(details);
     } catch (_) {}
@@ -155,10 +170,13 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
           if (profile) persistProfile(toPortalUser(profile));
           return;
         }
-        const { data } = await supabase.auth.getSession();
-        if (data.session?.user) {
-          const u = data.session.user;
-          const profile = await fetchPortalProfile(u.id, u.email, u.user_metadata?.fullName);
+        const authUser = await legacyPortalAuth.getSessionUser();
+        if (authUser) {
+          const profile = await fetchPortalProfile(
+            authUser.id,
+            authUser.email ?? undefined,
+            String(authUser.user_metadata?.fullName ?? ''),
+          );
           if (profile) persistProfile(profile);
         }
       } catch (e) {
@@ -174,19 +192,22 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     }
 
     void initAuth();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+    const unsubscribe = legacyPortalAuth.subscribe(async (event, authUser) => {
       if (event === 'SIGNED_OUT') {
         setUser(null);
         localStorage.removeItem(SESSION_KEY);
         sessionStorage.removeItem(SESSION_KEY);
-      } else if (session?.user) {
-        const u = session.user;
-        const profile = await fetchPortalProfile(u.id, u.email, u.user_metadata?.fullName);
+      } else if (authUser) {
+        const profile = await fetchPortalProfile(
+          authUser.id,
+          authUser.email ?? undefined,
+          String(authUser.user_metadata?.fullName ?? ''),
+        );
         if (profile) persistProfile(profile);
       }
     });
 
-    return () => subscription.unsubscribe();
+    return unsubscribe;
   }, [fetchPortalProfile, persistProfile]);
 
   const login = useCallback(async (identifier: string, password: string) => {
@@ -227,7 +248,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         }
       }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { user: authUser, error } = await legacyPortalAuth.signInWithPassword(email, password);
       if (error) {
         if (error.message.toLowerCase().includes('invalid login credentials')) {
           throw new Error('بيانات الدخول غير صحيحة. تأكد من البريد الإلكتروني أو كلمة المرور.');
@@ -235,9 +256,13 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         throw new Error(error.message);
       }
 
-      if (!data.user) throw new Error('فشل تسجيل الدخول. حاول مجدداً.');
+      if (!authUser) throw new Error('فشل تسجيل الدخول. حاول مجدداً.');
 
-      const profile = await fetchPortalProfile(data.user.id, data.user.email, data.user.user_metadata?.fullName);
+      const profile = await fetchPortalProfile(
+        authUser.id,
+        authUser.email ?? undefined,
+        String(authUser.user_metadata?.fullName ?? ''),
+      );
       if (!profile) {
         throw new Error('لم يتم العثور على حسابك في بوابة الويب. تواصل مع الدعم.');
       }
@@ -259,7 +284,21 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       const email = formData.email.trim().toLowerCase();
       const password = formData.password;
       if (portalAuthGateway && import.meta.env.VITE_PORTAL_REGISTRATION_API_ENABLED === 'true') {
-        const result = await portalAuthGateway.register({ fullName: formData.fullName.trim(), phone: formData.phone.trim(), email, password, portalRole: formData.portalRole, username: deriveUsername(email, formData.fullName) });
+        const result = await portalAuthGateway.register({
+          fullName: formData.fullName.trim(),
+          phone: formData.phone.trim(),
+          email,
+          password,
+          portalRole: formData.portalRole,
+          username: deriveUsername(email, formData.fullName),
+          ...(formData.address !== undefined ? { address: formData.address.trim() } : {}),
+          ...(formData.joinBy !== undefined ? { joinBy: formData.joinBy } : {}),
+          ...(formData.referrerId !== undefined ? { referrerId: formData.referrerId } : {}),
+          ...(formData.companyName !== undefined ? { companyName: formData.companyName.trim() } : {}),
+          ...(formData.commercialRegister !== undefined ? { commercialRegister: formData.commercialRegister.trim() } : {}),
+          ...(formData.courierType !== undefined ? { courierType: formData.courierType } : {}),
+          ...(formData.identityDocNote !== undefined ? { identityDocNote: formData.identityDocNote.trim() } : {}),
+        });
         if (!result.pendingApproval) persistProfile(toPortalUser(result.profile));
         return { pendingApproval: result.pendingApproval };
       }
@@ -284,12 +323,10 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       const { prefix, accountNumber, accountCode, accountId } = await getNextAccountCode(entityType);
 
       // ── Step 2: Create Supabase Auth user ────────────────────────────────────
-      const { data: authData, error: authError } = await supabase.auth.signUp({
+      const { user: authUser, hasSession, error: authError } = await legacyPortalAuth.signUp({
         email,
         password,
-        options: {
-          data: { fullName, phone, username, portalRole: formData.portalRole }
-        }
+        metadata: { fullName, phone, username, portalRole: formData.portalRole },
       });
 
       if (authError) {
@@ -299,9 +336,9 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         throw new Error(authError.message);
       }
 
-      if (!authData.user) throw new Error('تعذر إنشاء الحساب. يرجى المحاولة مجدداً.');
+      if (!authUser) throw new Error('تعذر إنشاء الحساب. يرجى المحاولة مجدداً.');
 
-      const uid = authData.user.id;
+      const uid = authUser.id;
 
       let linkedAccId = '';
       let linkedCustomerId: string | undefined;
@@ -452,12 +489,12 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       }
 
       // ── Step 6: Persist session ───────────────────────────────────────────────
-      if (authData.session) {
+      if (hasSession) {
         persistProfile(portalProfile);
       } else {
         try {
-          const { data: loginRes } = await supabase.auth.signInWithPassword({ email, password });
-          if (loginRes.session) persistProfile(portalProfile);
+          const loginResult = await legacyPortalAuth.signInWithPassword(email, password);
+          if (loginResult.hasSession) persistProfile(portalProfile);
         } catch (_) { }
       }
 
@@ -470,7 +507,7 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(async () => {
     try {
       if (portalAuthGateway) await portalAuthGateway.logout();
-      else await supabase.auth.signOut();
+      else await legacyPortalAuth.signOut();
     } catch (_) { }
     setUser(null);
     localStorage.removeItem(SESSION_KEY);
@@ -483,12 +520,12 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       if (profile) persistProfile(toPortalUser(profile, user));
       return;
     }
-    const { data } = await supabase.auth.getUser();
-    if (!data.user) return;
+    const authUser = await legacyPortalAuth.getCurrentUser();
+    if (!authUser) return;
     const profile = await fetchPortalProfile(
-      data.user.id,
-      data.user.email,
-      data.user.user_metadata?.fullName
+      authUser.id,
+      authUser.email ?? undefined,
+      String(authUser.user_metadata?.fullName ?? ''),
     );
     if (profile) persistProfile(profile);
   }, [fetchPortalProfile, persistProfile, user]);
@@ -501,12 +538,13 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       const apiUpdates = {
         ...(updates.fullName ? { fullName: updates.fullName } : {}),
         ...(updates.phone ? { phone: updates.phone } : {}),
-        ...(updates.email ? { email: updates.email } : {}),
+        ...(updates.address !== undefined ? { address: updates.address } : {}),
       };
       if (Object.keys(apiUpdates).length > 0) {
         const profile = await portalAuthGateway.updateProfile(apiUpdates);
         persistProfile(toPortalUser(profile, user));
       }
+      return;
     }
     await updateDocData('portal_users', user.uid, { ...updates, updatedAt });
 
@@ -543,6 +581,15 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
 
   const saveCustomerDetails = useCallback(async (details: Partial<CustomerDetails>): Promise<CustomerDetails> => {
     if (!user) throw new Error('يرجى تسجيل الدخول أولاً');
+    if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_DETAILS_API_ENABLED === 'true') {
+      const result = await portalAuthGateway.saveCustomerDetails(details);
+      setCustomerDetails(result);
+      if (result.onboardingCompleted !== user.onboardingCompleted) {
+        const updatedUser = { ...user, onboardingCompleted: result.onboardingCompleted };
+        persistProfile(updatedUser);
+      }
+      return result;
+    }
     const result = await saveCustDetailsHelper({
       ...details,
       userUid: user.uid,
@@ -561,8 +608,11 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
       await portalAuthGateway.changePassword(currentPassword, newPassword);
       return;
     }
-    const { error } = await supabase.auth.updateUser({ password: newPassword });
-    if (error) throw new Error(error.message || 'فشل تغيير كلمة المرور. يرجى المحاولة مجدداً.');
+    try {
+      await legacyPortalAuth.updatePassword(newPassword);
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : 'فشل تغيير كلمة المرور. يرجى المحاولة مجدداً.');
+    }
   }, []);
 
   return (

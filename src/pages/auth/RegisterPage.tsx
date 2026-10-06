@@ -41,8 +41,8 @@ export default function RegisterPage() {
       setError(tr('passwordsNotMatch'));
       return;
     }
-    if (password.length < 8) {
-      setError(tr('passwordTooShort'));
+    if (password.length < 12) {
+      setError(isRtl ? 'يجب أن تتكون كلمة المرور من 12 محرفاً على الأقل.' : 'Password must be at least 12 characters.');
       return;
     }
 
@@ -288,7 +288,7 @@ export default function RegisterPage() {
                 <input
                   id="reg-password"
                   type={showPassword ? 'text' : 'password'}
-                  required className="form-input"
+                  required minLength={12} maxLength={128} className="form-input"
                   value={password} onChange={e => setPassword(e.target.value)}
                   placeholder="••••••••" dir="ltr"
                   style={{ paddingInlineEnd: '2.5rem' }}
@@ -307,7 +307,7 @@ export default function RegisterPage() {
               <input
                 id="reg-confirmPassword"
                 type={showPassword ? 'text' : 'password'}
-                required className="form-input"
+                required minLength={12} maxLength={128} className="form-input"
                 value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)}
                 placeholder="••••••••" dir="ltr"
               />

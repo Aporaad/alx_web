@@ -84,4 +84,93 @@ describe('Portal Auth API Gateway', () => {
     expect(sessionValues.get('alx_portal_api_access_token')).toBe('new-access');
     expect(sessionValues.get('alx_portal_api_refresh_token')).toBe('new-refresh');
   });
+
+  it('sends role-specific registration details to the Portal API', async () => {
+    fetchMock.mockResolvedValueOnce(jsonResponse(201, {
+      success: true,
+      data: {
+        profile: {
+          portalUserId: 'portal-supplier', username: 'supplier', email: 'supplier@example.test',
+          fullName: 'Supplier Contact', phone: '700000003', role: 'supplier',
+          approvalStatus: 'pending_approval', onboardingCompleted: true,
+          linkedAccId: 'src_0001', linkedSourceId: 'src_0001',
+          financialAccountId: '2141-0001', financialAccountCode: '2141-0001', financialCurrency: 'YER',
+        },
+        pendingApproval: true,
+        tokens: null,
+      },
+    }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.register({
+      fullName: 'Supplier Contact', phone: '700000003', email: 'supplier@example.test',
+      password: 'a-strong-test-password', portalRole: 'supplier', username: 'supplier',
+      address: 'Test address', companyName: 'Test company', commercialRegister: 'test-register',
+    })).resolves.toMatchObject({
+      pendingApproval: true,
+      profile: { linkedSourceId: 'src_0001', financialAccountCode: '2141-0001' },
+    });
+
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('https://api.example.test/api/v1/portal/auth/register');
+    expect(JSON.parse(String(request?.body))).toMatchObject({
+      portalRole: 'supplier', companyName: 'Test company', commercialRegister: 'test-register', address: 'Test address',
+    });
+  });
+
+  it('updates customer onboarding details through the authenticated API without accepting client ownership IDs', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'portal-access');
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, {
+      success: true,
+      data: {
+        id: 'detail-1', userUid: 'portal-1', customerId: 'customer-1',
+        privacyPolicyAgreed: true, gender: 'female', age: 31,
+        preferredCategories: ['clothing'], joinBy: 'friend', referrerId: 'ref-1',
+        onboardingCompleted: true, createdAt: 1, updatedAt: 2,
+      },
+    }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.saveCustomerDetails({
+      privacyPolicyAgreed: true,
+      gender: 'female',
+      age: 31,
+      preferredCategories: ['clothing'],
+      onboardingCompleted: true,
+    })).resolves.toMatchObject({ userUid: 'portal-1', customerId: 'customer-1', onboardingCompleted: true });
+
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('https://api.example.test/api/v1/portal/customer-details');
+    expect(request?.method).toBe('PUT');
+    expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer portal-access');
+    expect(JSON.parse(String(request?.body))).not.toHaveProperty('userUid');
+  });
+
+  it('uses protected ticket/order endpoints and attaches an order idempotency key', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'portal-access');
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(201, {
+        success: true,
+        data: {
+          id: 'ticket-1', userUid: 'portal-1', userName: 'Customer', userRole: 'customer',
+          type: 'inquiry', subject: 'Help', message: 'Please help.', status: 'open', createdAt: 1,
+        },
+      }))
+      .mockResolvedValueOnce(jsonResponse(201, {
+        success: true,
+        data: { id: 'order-1', orderNumber: 'ALX-2610-X', trackingNumber: 'ALX-2610-X', status: 'pending', orderStatus: 'معلق', createdAt: 1 },
+      }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.createTicket({ type: 'inquiry', subject: 'Help', message: 'Please help.' }))
+      .resolves.toMatchObject({ id: 'ticket-1', userUid: 'portal-1' });
+    await expect(gateway?.createCustomerOrder({
+      items: [{ productName: 'Test', quantity: 1, productPrice: 5 }],
+      packagingType: 'normal', isUrgent: false, packageType: 'standard',
+    }, 'portal-order-test-001')).resolves.toMatchObject({ id: 'order-1' });
+
+    const [orderUrl, orderRequest] = fetchMock.mock.calls[1] ?? [];
+    expect(orderUrl).toBe('https://api.example.test/api/v1/portal/orders');
+    expect(new Headers(orderRequest?.headers).get('Idempotency-Key')).toBe('portal-order-test-001');
+  });
 });
