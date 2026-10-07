@@ -225,10 +225,15 @@ function clearTokens(): void {
 }
 
 export function portalAuthGatewayConfig(): PortalAuthGatewayConfig {
-  const apiBaseUrl = String(import.meta.env.VITE_PORTAL_API_BASE_URL || '').replace(/\/$/, '');
+  const apiBaseUrl = String(
+    import.meta.env.VITE_PORTAL_API_BASE_URL
+      || import.meta.env.VITE_ALX_API_URL
+      || import.meta.env.VITE_API_BASE_URL
+      || '',
+  ).replace(/\/$/, '');
   return {
     apiBaseUrl,
-    enabled: import.meta.env.VITE_PORTAL_AUTH_API_ENABLED === 'true' && apiBaseUrl.length > 0,
+    enabled: apiBaseUrl.length > 0 && import.meta.env.VITE_PORTAL_AUTH_API_ENABLED !== 'false',
   };
 }
 

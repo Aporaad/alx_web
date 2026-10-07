@@ -1,9 +1,16 @@
 import { readdir, readFile } from 'node:fs/promises';
-import { join, relative } from 'node:path';
+import { relative } from 'node:path';
 
 const root = new URL('../src/', import.meta.url);
-const restricted = ['pages', 'context', 'components', 'layouts'];
+const projectRoot = new URL('../', import.meta.url);
 const violations = [];
+const forbidden = [
+  /@supabase\/supabase-js/,
+  /(?:VITE_|process\.env\.)SUPABASE_[A-Z0-9_]+/,
+  /createClient\s*\(/,
+  /\bsupabase\.(from|rpc|auth|channel|realtime|storage)\s*\(/,
+  /(?:legacy-supabase|legacy-portal|legacyPortalAuth)/,
+];
 
 async function walk(url) {
   for (const entry of await readdir(url, { withFileTypes: true })) {
@@ -11,16 +18,17 @@ async function walk(url) {
     if (entry.isDirectory()) await walk(child);
     else if (/\.(ts|tsx)$/.test(entry.name)) {
       const source = await readFile(child, 'utf8');
-      if (/from\s+['"][^'"]*lib\/supabase['"]/.test(source)) {
-        violations.push(relative(new URL('../', import.meta.url), child.pathname));
+      const matches = forbidden.filter((pattern) => pattern.test(source));
+      if (matches.length) {
+        violations.push(`${relative(projectRoot.pathname, child.pathname)}: ${matches.length} forbidden Supabase pattern(s)`);
       }
     }
   }
 }
 
-for (const directory of restricted) await walk(new URL(`${directory}/`, root));
+await walk(root);
 if (violations.length) {
-  console.error('Portal boundary violations:\n' + violations.join('\n'));
+  console.error('Direct Supabase dependencies detected in alx_web source:\n' + violations.join('\n'));
   process.exit(1);
 }
-console.log('Portal boundary clean: pages, context, components, and layouts use Portal APIs.');
+console.log('API-only boundary clean: no direct Supabase dependencies in alx_web source.');

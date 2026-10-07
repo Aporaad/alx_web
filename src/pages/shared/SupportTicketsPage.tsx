@@ -3,7 +3,6 @@ import { MessageSquare, PlusCircle, Send, X } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { queryCollection, insertDoc } from '../../api/legacy-portal';
 import type { PortalTicket, TicketType } from '../../types/portalTypes';
 
 export default function SupportTicketsPage() {
@@ -29,13 +28,8 @@ export default function SupportTicketsPage() {
   const loadTickets = async () => {
     setLoading(true);
     try {
-      if (portalAuthGateway && import.meta.env.VITE_PORTAL_TICKETS_API_ENABLED === 'true') {
-        setTickets(await portalAuthGateway.listTickets());
-        return;
-      }
-      const userTickets = await queryCollection('portal_tickets', 'userUid', user?.uid);
-      userTickets.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-      setTickets(userTickets as PortalTicket[]);
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      setTickets(await portalAuthGateway.listTickets() as PortalTicket[]);
     } finally {
       setLoading(false);
     }
@@ -52,22 +46,8 @@ export default function SupportTicketsPage() {
     setError('');
 
     try {
-      if (portalAuthGateway && import.meta.env.VITE_PORTAL_TICKETS_API_ENABLED === 'true') {
-        await portalAuthGateway.createTicket({ type, subject: subject.trim(), message: message.trim() });
-      } else {
-        const ticketId = 'tkt_' + Math.random().toString(36).substring(2, 11);
-        const ticketData = {
-          userUid: user.uid,
-          userName: user.fullName,
-          userRole: user.portalRole,
-          type,
-          subject,
-          message,
-          status: 'open',
-          createdAt: Date.now(),
-        };
-        await insertDoc('portal_tickets', ticketId, ticketData);
-      }
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      await portalAuthGateway.createTicket({ type, subject: subject.trim(), message: message.trim() });
 
       await loadTickets();
       setShowModal(false);

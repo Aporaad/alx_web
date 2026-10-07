@@ -7,6 +7,7 @@ import {
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { getCollection } from '../../api/legacy-portal';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // Dynamic status color helper
@@ -56,32 +57,8 @@ export default function CustomerDashboard() {
     if (!user) return;
     setLoading(true);
     try {
-      const linkedAccId = (user.linkedAccId || user.linkedCustomerId || '').toLowerCase();
-      const uid = (user.uid || '').toLowerCase();
-      const fullName = (user.fullName || '').trim().toLowerCase();
-      const phone = (user.phone || '').replace(/\s+/g, '').toLowerCase();
-      const email = (user.email || '').toLowerCase();
-
-      const allOrders = await getCollection('orders');
-
-      const matched = allOrders.filter((ord: any) => {
-        const custId = String(ord.customerId || '').toLowerCase();
-        const custUid = String(ord.customerUid || '').toLowerCase();
-        const custName = String(ord.customerName || '').trim().toLowerCase();
-        const custPhone = String(ord.customerPhone || '').replace(/\s+/g, '').toLowerCase();
-        const custEmail = String(ord.customerEmail || '').toLowerCase();
-        const portalUid = String(ord.portalUid || '').toLowerCase();
-
-        return (
-          (linkedAccId && (custId === linkedAccId || custUid === linkedAccId)) ||
-          (uid && (custId === uid || custUid === uid || portalUid === uid)) ||
-          (fullName && custName === fullName) ||
-          (phone && phone.length >= 7 && custPhone === phone) ||
-          (email && custEmail === email)
-        );
-      });
-
-      matched.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      const matched = await portalAuthGateway.listCustomerOrders();
 
       const total = matched.length;
       const delivered = matched.filter((o: any) =>

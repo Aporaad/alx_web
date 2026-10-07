@@ -5,7 +5,6 @@ import {
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { getCollection, getDocById } from '../../api/legacy-portal';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
 import type { PortalLedgerEntryDto, PortalPaymentRequestDto } from '../../api/portalAuthGateway';
 import type { LedgerEntry } from '../../types/portalTypes';
@@ -14,10 +13,6 @@ function createPaymentRequestIdempotencyKey(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : `portal-payment-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-}
-
-function isLedgerApiEnabled(): boolean {
-  return import.meta.env.VITE_PORTAL_LEDGER_API_ENABLED === 'true';
 }
 
 function mapPortalLedger(entries: PortalLedgerEntryDto[]): { entries: LedgerEntry[]; debit: number; credit: number; balance: number } {
@@ -69,125 +64,18 @@ export default function CustomerLedgerPage() {
   const loadLedger = useCallback(async () => {
     if (!user) return;
     setLoading(true);
-    if (portalAuthGateway) {
-      try {
-        setPaymentRequests(await portalAuthGateway.listPaymentRequests());
-      } catch (error) {
-        console.error('[CustomerLedger] Error loading payment requests:', error);
-      }
-    } else {
-      setPaymentRequests([]);
-    }
-    if (portalAuthGateway && isLedgerApiEnabled()) {
-      try {
-        const mapped = mapPortalLedger(await portalAuthGateway.listCustomerLedger());
-        setEntries(mapped.entries);
-        setStats({ debit: mapped.debit, credit: mapped.credit, balance: mapped.balance });
-        setLoading(false);
-        return;
-      } catch (error) {
-        console.error('[CustomerLedger] API ledger read failed; using legacy fallback:', error);
-      }
-    }
     try {
-      let custAccId = user.financialAccountId || '';
-      let custAccCode = user.financialAccountCode || '';
-      const linkedAccId = user.linkedAccId || user.linkedCustomerId || '';
-      const uid = user.uid || '';
-
-      // If financialAccountId is missing from user session state, fetch customer record
-      if (!custAccId || !custAccCode) {
-        if (linkedAccId) {
-          const custDoc = await getDocById('customers', linkedAccId);
-          if (custDoc) {
-            custAccId = custAccId || custDoc.financialAccountId || custDoc.id || '';
-            custAccCode = custAccCode || custDoc.financialAccountCode || '';
-          }
-        }
-      }
-
-      // Fetch all transactions and journal entries
-      const [allTxs, allJvs] = await Promise.all([
-        getCollection('account_transactions'),
-        getCollection('journal_entries')
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      const [requests, ledger] = await Promise.all([
+        portalAuthGateway.listPaymentRequests(),
+        portalAuthGateway.listCustomerLedger(),
       ]);
-
-      const customerIds = new Set<string>(
-        [custAccId, custAccCode, linkedAccId, uid, user.fullName].filter(Boolean)
-      );
-
-      // Filter legs belonging to this customer
-      const clientTxRows = allTxs.filter((r: any) => {
-        const matchAccId = customerIds.has(r.accountId) || customerIds.has(r.entityId);
-        const matchAccCode = custAccCode && (r.accountCode === custAccCode || r.code === custAccCode);
-        const matchDebitCredit = customerIds.has(r.debitAccountId) || customerIds.has(r.creditAccountId);
-        const matchNames = (r.customerName && r.customerName === user.fullName) || (r.entityName && r.entityName === user.fullName);
-        const matchUids = (r.customerUid && r.customerUid === uid) || (r.createdByUid && r.createdByUid === uid && r.entityType === 'customer');
-
-        return matchAccId || matchAccCode || matchDebitCredit || matchNames || matchUids;
-      });
-
-      // Also check journal entries where customer is credit or debit side
-      allJvs.forEach((jv: any) => {
-        const isCustomerDebit = customerIds.has(jv.debitAccountId) || (custAccCode && jv.debitAccountCode === custAccCode);
-        const isCustomerCredit = customerIds.has(jv.creditAccountId) || (custAccCode && jv.creditAccountCode === custAccCode);
-
-        if (isCustomerDebit || isCustomerCredit) {
-          const existsInTx = clientTxRows.some((tx: any) => tx.journalEntryId === jv.id || tx.refNumber === jv.entryNumber);
-          if (!existsInTx) {
-            clientTxRows.push({
-              id: jv.id,
-              journalEntryId: jv.id,
-              voucherNumber: jv.entryNumber,
-              voucherDate: jv.createdAt,
-              type: isCustomerDebit ? 'Debit' : 'Credit',
-              amount: isCustomerDebit ? (jv.amountDebitCurrency || jv.amount) : (jv.amountCreditCurrency || jv.amount),
-              currency: jv.currency || 'YER',
-              description: jv.description || jv.notes || 'قيد محاسبي',
-              refNumber: jv.entryNumber || jv.refNumber,
-              createdAt: jv.createdAt,
-            });
-          }
-        }
-      });
-
-      // Sort by date ascending to compute accurate chronological running balance
-      clientTxRows.sort((a: any, b: any) => (a.createdAt || a.voucherDate || 0) - (b.createdAt || b.voucherDate || 0));
-
-      let running = 0;
-      let totalDebit = 0;
-      let totalCredit = 0;
-
-      const formatted: LedgerEntry[] = clientTxRows.map((r: any) => {
-        const rawType = String(r.type || r.voucherType || '').toLowerCase();
-        const isDebit = rawType === 'debit' || r.voucherType === 'order_charge' || r.debitAccountId === custAccId;
-        const amount = Number(r.amount || r.amountOriginal || r.amountInDefaultCurrency) || 0;
-
-        if (isDebit) {
-          totalDebit += amount;
-          running += amount;
-        } else {
-          totalCredit += amount;
-          running -= amount;
-        }
-
-        return {
-          id: r.id || `entry_${Math.random()}`,
-          date: r.voucherDate || r.createdAt || Date.now(),
-          description: r.description || r.notes || (isDebit ? 'قيد مالي (مدين)' : 'سداد دفعة حساب (دائن)'),
-          refNumber: r.voucherNumber || r.refNumber || r.id?.slice(0, 8) || 'JV-REF',
-          amount,
-          currency: r.currency || r.currencyOriginal || 'YER',
-          type: isDebit ? 'debit' : 'credit',
-          runningBalance: running,
-        };
-      });
-
-      // Display newest entries first
-      setEntries([...formatted].reverse());
-      setStats({ debit: totalDebit, credit: totalCredit, balance: running });
-    } catch (err) {
-      console.error('[CustomerLedger] Error loading ledger:', err);
+      setPaymentRequests(requests);
+      const mapped = mapPortalLedger(ledger);
+      setEntries(mapped.entries);
+      setStats({ debit: mapped.debit, credit: mapped.credit, balance: mapped.balance });
+    } catch (error) {
+      console.error('[CustomerLedger] API ledger read failed:', error);
     } finally {
       setLoading(false);
     }

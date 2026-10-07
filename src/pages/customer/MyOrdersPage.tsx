@@ -26,7 +26,6 @@ import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
 import {
   getCollection,
-  insertDoc
 } from '../../api/legacy-portal';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
@@ -148,39 +147,8 @@ export default function MyOrdersPage({
     if (!user) return;
     setLoadingOrders(true);
     try {
-      if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_ORDERS_API_ENABLED === 'true') {
-        setOrders(await portalAuthGateway.listCustomerOrders());
-        return;
-      }
-      // Collect all possible identifiers for this customer
-      const linkedAccId = (user.linkedAccId || user.linkedCustomerId || '').toLowerCase();
-      const uid = (user.uid || '').toLowerCase();
-      const fullName = (user.fullName || '').trim().toLowerCase();
-      const phone = (user.phone || '').replace(/\s+/g, '').toLowerCase();
-      const email = (user.email || '').toLowerCase();
-
-      // Fetch ALL orders once, filter client-side — most reliable approach
-      const allOrders = await getCollection('orders');
-
-      const matched = allOrders.filter((ord: any) => {
-        const custId = String(ord.customerId || '').toLowerCase();
-        const custUid = String(ord.customerUid || '').toLowerCase();
-        const custName = String(ord.customerName || '').trim().toLowerCase();
-        const custPhone = String(ord.customerPhone || '').replace(/\s+/g, '').toLowerCase();
-        const custEmail = String(ord.customerEmail || '').toLowerCase();
-        const portalUid = String(ord.portalUid || '').toLowerCase();
-
-        return (
-          (linkedAccId && (custId === linkedAccId || custUid === linkedAccId)) ||
-          (uid && (custId === uid || custUid === uid || portalUid === uid)) ||
-          (fullName && custName === fullName) ||
-          (phone && phone.length >= 7 && custPhone === phone) ||
-          (email && custEmail === email)
-        );
-      });
-
-      matched.sort((a: any, b: any) => (b.createdAt || 0) - (a.createdAt || 0));
-      setOrders(matched);
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      setOrders(await portalAuthGateway.listCustomerOrders());
     } catch (err) {
       console.error('[MyOrdersPage] Error loading orders:', err);
     } finally {
@@ -397,21 +365,18 @@ export default function MyOrdersPage({
         updatedAt: now,
       };
 
-      if (portalAuthGateway && import.meta.env.VITE_PORTAL_CUSTOMER_ORDERS_API_ENABLED === 'true') {
-        await portalAuthGateway.createCustomerOrder({
-          ...(orderSourceId ? { orderSourceId } : {}),
-          ...(externalOrderNumber ? { externalOrderNumber } : {}),
-          ...(cartShareCode ? { cartShareCode } : {}),
-          items: validItems.map(({ id: _itemId, ...item }) => item),
-          packagingType,
-          isUrgent,
-          packageType: isUrgent ? 'express' : 'standard',
-          paymentMethod,
-          ...(notes.trim() ? { notes: notes.trim() } : {}),
-        }, `portal-order:${crypto.randomUUID()}`);
-      } else {
-        await insertDoc('orders', orderId, payload);
-      }
+      if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
+      await portalAuthGateway.createCustomerOrder({
+        ...(orderSourceId ? { orderSourceId } : {}),
+        ...(externalOrderNumber ? { externalOrderNumber } : {}),
+        ...(cartShareCode ? { cartShareCode } : {}),
+        items: validItems.map(({ id: _itemId, ...item }) => item),
+        packagingType,
+        isUrgent,
+        packageType: isUrgent ? 'express' : 'standard',
+        paymentMethod,
+        ...(notes.trim() ? { notes: notes.trim() } : {}),
+      }, `portal-order:${crypto.randomUUID()}`);
 
       setSuccess(true);
       setTimeout(() => {

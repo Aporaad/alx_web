@@ -4,7 +4,6 @@ import type {
   PublicTrackingDto,
   PublicTrackingQuery,
 } from '../contracts/portal.contracts';
-import { getCollection } from '../lib/legacy-supabase/supabase';
 
 export interface PortalGateway {
   getCurrentSession(): Promise<PortalUserSessionDto | null>;
@@ -36,11 +35,20 @@ function isPublicTrackingDto(value: unknown): value is PublicTrackingDto {
       && isNullableTimestamp(event.occurredAt));
 }
 
+function getApiBaseUrl(): string {
+  return String(
+    import.meta.env.VITE_PORTAL_API_BASE_URL
+      || import.meta.env.VITE_ALX_API_URL
+      || import.meta.env.VITE_API_BASE_URL
+      || '',
+  ).replace(/\/$/, '');
+}
+
 export function portalGatewayConfig(): PortalGatewayConfig {
-  const apiBaseUrl = String(import.meta.env.VITE_PORTAL_API_BASE_URL || '').replace(/\/$/, '');
+  const apiBaseUrl = getApiBaseUrl();
   return {
     apiBaseUrl,
-    useApi: import.meta.env.VITE_PORTAL_API_ENABLED === 'true' && apiBaseUrl.length > 0,
+    useApi: apiBaseUrl.length > 0 && import.meta.env.VITE_PORTAL_API_ENABLED !== 'false',
   };
 }
 
@@ -52,9 +60,8 @@ class HttpPortalGateway implements PortalGateway {
       credentials: 'include',
       headers: { Accept: 'application/json' },
     });
-    if ((response.status === 401 || (notFoundIsNull && response.status === 404))) return null;
+    if (response.status === 401 || (notFoundIsNull && response.status === 404)) return null;
     if (!response.ok) throw new Error('PORTAL_API_UNAVAILABLE');
-
     const payload: unknown = await response.json();
     if (!isRecord(payload) || payload.success !== true || !('data' in payload)) {
       throw new Error('PORTAL_API_INVALID_RESPONSE');
@@ -63,14 +70,11 @@ class HttpPortalGateway implements PortalGateway {
   }
 
   async getCurrentSession(): Promise<PortalUserSessionDto | null> {
-    throw new Error('PORTAL_SESSION_API_NOT_IMPLEMENTED');
+    return null;
   }
 
   async getPublicTracking(query: PublicTrackingQuery): Promise<PublicTrackingDto | null> {
-    const data = await this.getData(
-      `/api/v1/portal/tracking/${encodeURIComponent(query.trackingToken)}`,
-      true,
-    );
+    const data = await this.getData(`/api/v1/portal/tracking/${encodeURIComponent(query.trackingToken)}`, true);
     if (data === null) return null;
     if (!isPublicTrackingDto(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
     return data;
@@ -78,12 +82,9 @@ class HttpPortalGateway implements PortalGateway {
 
   async getAnnouncements(): Promise<PortalAnnouncementDto[]> {
     const data = await this.getData('/api/v1/portal/announcements');
-    if (data === null) return [];
     if (!Array.isArray(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
     const announcements = data.map(toAnnouncementDto);
-    if (announcements.some((announcement) => announcement === null)) {
-      throw new Error('PORTAL_API_INVALID_RESPONSE');
-    }
+    if (announcements.some((announcement) => announcement === null)) throw new Error('PORTAL_API_INVALID_RESPONSE');
     return announcements.filter((announcement): announcement is PortalAnnouncementDto => announcement !== null);
   }
 }
@@ -95,42 +96,19 @@ function toAnnouncementDto(value: unknown): PortalAnnouncementDto | null {
   const content = typeof value.content === 'string' ? value.content : '';
   if (!id || !title || !content) return null;
   const priority = value.priority === 'urgent' || value.priority === 'high' ? value.priority : 'normal';
-  const createdAt = typeof value.createdAt === 'number' ? value.createdAt : Date.now();
+  const createdAt = typeof value.createdAt === 'number' ? value.createdAt : 0;
   return { id, title, content, priority, createdAt };
 }
 
-const legacyPortalGateway: PortalGateway = {
-  async getCurrentSession() { return null; },
-  async getPublicTracking(query) {
-    const token = query.trackingToken.trim().toLowerCase();
-    if (!token) return null;
-    const rows = await getCollection('orders');
-    const matched = rows.find((value) => {
-      if (!isRecord(value)) return false;
-      return [value.trackingNumber, value.tracking_number]
-        .some((candidate) => typeof candidate === 'string' && candidate.toLowerCase() === token);
-    });
-    if (!matched) return null;
-    const status = typeof matched.orderStatus === 'string'
-      ? matched.orderStatus
-      : typeof matched.status === 'string' ? matched.status : 'pending';
-    const occurredAt = typeof matched.updatedAt === 'number'
-      ? matched.updatedAt
-      : typeof matched.updated_at === 'number' ? matched.updated_at : null;
-    return { trackingToken: query.trackingToken, status, events: [{ status, occurredAt }], updatedAt: occurredAt };
-  },
-  async getAnnouncements() {
-    const rows = await getCollection('announcements');
-    return rows.map(toAnnouncementDto).filter((row): row is PortalAnnouncementDto => row !== null);
-  },
-};
-
-/** Legacy remains a deliberate opt-out while auth and remaining Portal features are migrated. */
-export function createPortalGateway(
-  config: PortalGatewayConfig = portalGatewayConfig(),
-): PortalGateway {
-  if (config.useApi) return new HttpPortalGateway(config.apiBaseUrl);
-  return legacyPortalGateway;
+export function createPortalGateway(config: PortalGatewayConfig = portalGatewayConfig()): PortalGateway {
+  if (!config.useApi) {
+    return {
+      getCurrentSession: async () => null,
+      getPublicTracking: async () => { throw new Error('PORTAL_API_NOT_CONFIGURED'); },
+      getAnnouncements: async () => { throw new Error('PORTAL_API_NOT_CONFIGURED'); },
+    };
+  }
+  return new HttpPortalGateway(config.apiBaseUrl);
 }
 
 export const portalGateway = createPortalGateway();
