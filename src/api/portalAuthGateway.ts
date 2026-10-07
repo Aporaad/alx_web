@@ -160,7 +160,7 @@ export interface PortalAuthGateway {
   saveCustomerDetails(input: PortalCustomerDetailsUpdateInput): Promise<PortalCustomerDetailsDto>;
   listTickets(): Promise<PortalTicketDto[]>;
   createTicket(input: { type: PortalTicketType; subject: string; message: string }): Promise<PortalTicketDto>;
-  listCustomerOrders(): Promise<PortalOrderDto[]>;
+  listCustomerOrders(search?: string): Promise<PortalOrderDto[]>;
   createCustomerOrder(input: PortalOrderCreateInput, idempotencyKey: string): Promise<PortalOrderDto>;
   listPaymentRequests(): Promise<PortalPaymentRequestDto[]>;
   listCustomerLedger(): Promise<PortalLedgerEntryDto[]>;
@@ -364,8 +364,10 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return data;
   }
 
-  async listCustomerOrders(): Promise<PortalOrderDto[]> {
-    const data = await this.authenticatedRequest('/api/v1/portal/orders');
+  async listCustomerOrders(search?: string): Promise<PortalOrderDto[]> {
+    const normalizedSearch = search?.trim();
+    const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}&limit=100` : '';
+    const data = await this.authenticatedRequest(`/api/v1/portal/orders${query}`);
     if (!Array.isArray(data) || !data.every(isPortalOrder)) throw new Error('PORTAL_API_INVALID_RESPONSE');
     return data;
   }

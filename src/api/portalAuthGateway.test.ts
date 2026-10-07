@@ -174,6 +174,24 @@ describe('Portal Auth API Gateway', () => {
     expect(new Headers(orderRequest?.headers).get('Idempotency-Key')).toBe('portal-order-test-001');
   });
 
+  it('searches only through the authenticated customer orders API', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'portal-access');
+    fetchMock.mockResolvedValueOnce(jsonResponse(200, {
+      success: true,
+      data: [{
+        id: 'order-1', orderNumber: 'ORD-1', trackingNumber: 'TRK-1',
+        status: 'pending', orderStatus: 'pending', createdAt: 1,
+      }],
+    }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.listCustomerOrders(' TRK /% ')).resolves.toMatchObject([{ id: 'order-1' }]);
+
+    const [url, request] = fetchMock.mock.calls[0] ?? [];
+    expect(url).toBe('https://api.example.test/api/v1/portal/orders?search=TRK%20%2F%25&limit=100');
+    expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer portal-access');
+  });
+
   it('submits and lists pending payment claims through the API without client-owned account identifiers', async () => {
     sessionValues.set('alx_portal_api_access_token', 'portal-access');
     const paymentRequest = {

@@ -1,82 +1,56 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Search, X, Package, FileText, Megaphone } from 'lucide-react';
+import { Search, X, Package, Megaphone } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { usePortalAuth } from '../../context/PortalAuthContext';
-import { supabase, extractRows } from '../../api/legacy-portal';
-
-interface SearchResult {
-  id: string;
-  type: 'order' | 'transaction' | 'announcement' | 'ticket';
-  title: string;
-  subtitle?: string;
-  icon: React.ReactNode;
-}
+import { portalAuthGateway } from '../../api/portalAuthGateway';
+import { portalGateway } from '../../api/portalGateway';
+import { searchPortalResources } from '../../lib/globalSearch';
 
 export default function GlobalSearch({ onClose }: { onClose: () => void }) {
   const { tr, isRtl } = usePortalTheme();
   const { user } = usePortalAuth();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<SearchResult[]>([]);
+  const [results, setResults] = useState<ReturnType<typeof searchPortalResources>>([]);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { inputRef.current?.focus(); }, []);
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (query.trim().length >= 2) runSearch(query.trim());
-      else setResults([]);
-    }, 300);
-    return () => clearTimeout(timer);
-  }, [query]);
+    let active = true;
+    const searchTerm = query.trim();
 
-  const runSearch = async (q: string) => {
-    if (!user) return;
-    setLoading(true);
-    try {
-      const all: SearchResult[] = [];
-
-      // Search portal_orders
-      const { data: orders } = await supabase
-        .from('portal_orders')
-        .select('*')
-        .eq('customer_uid', user.uid)
-        .or(`tracking_number.ilike.%${q}%,recipient_name.ilike.%${q}%,goods_description.ilike.%${q}%`)
-        .limit(5);
-
-      (orders || []).forEach((o: any) => {
-        all.push({
-          id: o.id,
-          type: 'order',
-          title: o.tracking_number || o.id,
-          subtitle: o.recipient_name,
-          icon: <Package size={14} style={{ color: 'var(--gold)' }} />
-        });
-      });
-
-      // Search announcements
-      const { data: anns } = await supabase
-        .from('announcements')
-        .select('*')
-        .eq('is_active', true)
-        .ilike('title', `%${q}%`)
-        .limit(3);
-
-      (anns || []).forEach((a: any) => {
-        all.push({
-          id: a.id,
-          type: 'announcement',
-          title: a.title,
-          subtitle: a.content?.slice(0, 60) + '...',
-          icon: <Megaphone size={14} style={{ color: '#60a5fa' }} />
-        });
-      });
-
-      setResults(all);
-    } finally {
+    if (searchTerm.length < 2 || !user) {
+      setResults([]);
       setLoading(false);
+      return () => { active = false; };
     }
-  };
+
+    const timer = window.setTimeout(() => {
+      setLoading(true);
+      const ordersRequest = user.portalRole === 'customer'
+        ? (portalAuthGateway
+          ? portalAuthGateway.listCustomerOrders(searchTerm)
+          : Promise.reject(new Error('PORTAL_API_NOT_CONFIGURED')))
+        : Promise.resolve([]);
+
+      void Promise.all([ordersRequest, portalGateway.getAnnouncements()])
+        .then(([orders, announcements]) => {
+          if (active) setResults(searchPortalResources(searchTerm, orders, announcements));
+        })
+        .catch(() => {
+          if (active) setResults([]);
+        })
+        .finally(() => {
+          if (active) setLoading(false);
+        });
+    }, 300);
+
+    return () => {
+      active = false;
+      window.clearTimeout(timer);
+    };
+  }, [query, user?.portalRole, user?.uid]);
 
   return (
     <div className="modal-backdrop" onClick={onClose} dir={isRtl ? 'rtl' : 'ltr'}>
@@ -113,13 +87,13 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
 
         {/* Results */}
         <div style={{ maxHeight: 360, overflowY: 'auto', padding: '0.5rem' }}>
-          {query.length < 2 && (
+          {query.trim().length < 2 && (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <Search size={28} />
               <p style={{ fontSize: '0.8rem' }}>{tr('search')}</p>
             </div>
           )}
-          {query.length >= 2 && results.length === 0 && !loading && (
+          {query.trim().length >= 2 && results.length === 0 && !loading && (
             <div className="empty-state" style={{ padding: '2rem' }}>
               <p style={{ fontSize: '0.8rem' }}>{tr('noResults')}</p>
             </div>
@@ -142,7 +116,9 @@ export default function GlobalSearch({ onClose }: { onClose: () => void }) {
                 borderRadius: '0.5rem',
                 display: 'flex', alignItems: 'center', justifyContent: 'center'
               }}>
-                {r.icon}
+                {r.type === 'order'
+                  ? <Package size={14} style={{ color: 'var(--gold)' }} />
+                  : <Megaphone size={14} style={{ color: '#60a5fa' }} />}
               </div>
               <div>
                 <div style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-primary)' }}>{r.title}</div>
