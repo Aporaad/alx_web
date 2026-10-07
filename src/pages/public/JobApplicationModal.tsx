@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { Briefcase, X, CheckCircle2, User, Phone, Mail, MapPin, Award, Clock, FileText, Send, AlertCircle } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { insertDoc } from '../../api/legacy-portal';
+import type { JobApplicationInput } from '../../contracts/jobApplication.contract';
+import { submitJobApplication } from '../../api/jobApplicationGateway';
 
 interface JobApplicationModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ interface JobApplicationModalProps {
 export default function JobApplicationModal({ isOpen, onClose }: JobApplicationModalProps) {
   const { isRtl } = usePortalTheme();
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<JobApplicationInput>({
     fullName: '',
     phone: '',
     email: '',
@@ -41,32 +42,16 @@ export default function JobApplicationModal({ isOpen, onClose }: JobApplicationM
     setErrorMsg(null);
 
     try {
-      const now = Date.now();
-      const RND = Math.floor(1000 + Math.random() * 9000);
-      const jobId = `job_${now}_${RND}`;
-      const refCode = `JOB-${new Date().getFullYear()}-${RND}`;
-
-      const payload = {
-        id: jobId,
-        refCode,
+      const result = await submitJobApplication({
+        ...formData,
         fullName: formData.fullName.trim(),
         phone: formData.phone.trim(),
-        email: formData.email.trim().toLowerCase(),
+        email: formData.email?.trim().toLowerCase() || undefined,
         city: formData.city.trim(),
-        address: formData.address.trim(),
-        jobPosition: formData.jobPosition,
-        qualification: formData.qualification,
         experienceYears: Number(formData.experienceYears) || 0,
-        idNumber: formData.idNumber.trim(),
-        notes: formData.notes.trim(),
-        status: 'pending_review',
-        createdAt: now,
-        updatedAt: now,
-      };
+      });
 
-      await insertDoc('jobs_req', jobId, payload);
-
-      setSuccessMsg(refCode);
+      setSuccessMsg(result.refCode);
       setFormData({
         fullName: '',
         phone: '',
@@ -79,9 +64,10 @@ export default function JobApplicationModal({ isOpen, onClose }: JobApplicationM
         idNumber: '',
         notes: '',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('[JobApplicationModal] Error submitting job request:', err);
-      setErrorMsg(err.message || (isRtl ? 'حدث خطأ أثناء تقديم الطلب، يرجى المحاولة لاحقاً' : 'Error submitting application'));
+      const message = err instanceof Error ? err.message : undefined;
+      setErrorMsg(message || (isRtl ? 'حدث خطأ أثناء تقديم الطلب، يرجى المحاولة لاحقاً' : 'Error submitting application'));
     } finally {
       setSubmitting(false);
     }
@@ -193,7 +179,7 @@ export default function JobApplicationModal({ isOpen, onClose }: JobApplicationM
                   <select
                     className="form-select"
                     value={formData.jobPosition}
-                    onChange={e => setFormData({ ...formData, jobPosition: e.target.value })}
+                    onChange={e => setFormData({ ...formData, jobPosition: e.target.value as JobApplicationInput['jobPosition'] })}
                   >
                     <option value="local_courier">{isRtl ? '🚚 مندوب توصيل شحنات محلي' : 'Local Delivery Courier'}</option>
                     <option value="sourcing_courier">{isRtl ? '📦 مندوب شراء وتوريد مصانع' : 'Sourcing & Import Courier'}</option>
@@ -210,7 +196,7 @@ export default function JobApplicationModal({ isOpen, onClose }: JobApplicationM
                   <select
                     className="form-select"
                     value={formData.qualification}
-                    onChange={e => setFormData({ ...formData, qualification: e.target.value })}
+                    onChange={e => setFormData({ ...formData, qualification: e.target.value as JobApplicationInput['qualification'] })}
                   >
                     <option value="Bachelor">{isRtl ? 'بكالوريوس' : 'Bachelor Degree'}</option>
                     <option value="Diploma">{isRtl ? 'دبلوم متوسط' : 'Diploma'}</option>
