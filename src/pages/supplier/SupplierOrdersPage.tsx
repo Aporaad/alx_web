@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Factory, Edit3, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { queryCollection, updateDocData } from '../../api/legacy-portal';
 import type { SupplierOrder, SupplierOrderStage } from '../../types/portalTypes';
 
@@ -25,6 +26,12 @@ export default function SupplierOrdersPage() {
   const loadOrders = async () => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const apiOrders = await portalAuthGateway.listSupplierOrders();
+        setOrders(apiOrders as SupplierOrder[]);
+        return;
+      }
+
       const cbmOrders = await queryCollection('portal_orders', 'packageType', 'factory_cbm');
       cbmOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
 
@@ -41,6 +48,8 @@ export default function SupplierOrdersPage() {
       }));
 
       setOrders(list);
+    } catch (err) {
+      console.error('[SupplierOrdersPage] Error loading orders:', err);
     } finally {
       setLoading(false);
     }
@@ -56,6 +65,13 @@ export default function SupplierOrdersPage() {
     if (!modalOrder) return;
     setUpdating(true);
     try {
+      if (portalAuthGateway) {
+        await portalAuthGateway.updateSupplierOrder(modalOrder.id, cbmInput, weightInput);
+        await loadOrders();
+        setModalOrder(null);
+        return;
+      }
+
       await updateDocData('portal_orders', modalOrder.id, {
         cbmVolume: cbmInput,
         weightKg: weightInput,
@@ -69,6 +85,8 @@ export default function SupplierOrdersPage() {
 
       await loadOrders();
       setModalOrder(null);
+    } catch (err) {
+      console.error('[SupplierOrdersPage] Error updating order:', err);
     } finally {
       setUpdating(false);
     }

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Truck, MapPin, Phone, CheckCircle, XCircle, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { queryByDataField, updateDocData } from '../../api/legacy-portal';
 import type { CourierTask, OrderStatus } from '../../types/portalTypes';
 
@@ -23,7 +24,13 @@ export default function CourierTasksPage() {
   const loadTasks = async () => {
     setLoading(true);
     try {
-      // Query system `orders` table where deliveryCourierId matches courier's linkedAccId or uid
+      if (portalAuthGateway) {
+        const apiTasks = await portalAuthGateway.listCourierTasks();
+        setTasks(apiTasks as CourierTask[]);
+        return;
+      }
+
+      // Fallback: Query system `orders` table where deliveryCourierId matches courier's linkedAccId or uid
       let courierOrders = await queryByDataField('orders', 'deliveryCourierId', user?.linkedAccId || user?.uid);
       if (courierOrders.length === 0) {
         courierOrders = await queryByDataField('orders', 'courierId', user?.linkedAccId || user?.uid);
@@ -46,6 +53,8 @@ export default function CourierTasksPage() {
       }));
 
       setTasks(list);
+    } catch (err) {
+      console.error('[CourierTasksPage] Error loading tasks:', err);
     } finally {
       setLoading(false);
     }

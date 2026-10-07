@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Download, Factory } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { supabase } from '../../api/legacy-portal';
 
 export default function SupplierLedgerPage() {
@@ -20,6 +21,12 @@ export default function SupplierLedgerPage() {
   const loadSupplierLedger = async () => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const ledger = await portalAuthGateway.listCustomerLedger();
+        setTransactions(ledger);
+        return;
+      }
+
       const { data } = await supabase
         .from('transactions')
         .select('*')
@@ -27,6 +34,8 @@ export default function SupplierLedgerPage() {
         .limit(10);
 
       setTransactions(data || []);
+    } catch (err) {
+      console.error('[SupplierLedgerPage] Error loading supplier ledger:', err);
     } finally {
       setLoading(false);
     }

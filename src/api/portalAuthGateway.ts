@@ -151,6 +151,48 @@ interface PortalAuthTokenPairDto {
   expiresInSeconds: number;
 }
 
+export interface PortalCourierTaskDto {
+  orderId: string;
+  trackingNumber: string;
+  customerName: string;
+  customerPhone: string;
+  recipientName: string;
+  recipientPhone: string;
+  recipientAddress: string;
+  deliveryCity: string;
+  status: string;
+  cashOnDelivery: number;
+  currency: string;
+  assignedAt: number;
+}
+
+export interface PortalCourierStatsDto {
+  activeTasks: number;
+  deliveredToday: number;
+  pendingEarnings: number;
+  currency: string;
+}
+
+export interface PortalCourierLedgerEntryDto {
+  orderId: string;
+  trackingNumber: string;
+  recipientName: string;
+  estimatedCost: number;
+  currency: string;
+  deliveredAt: number;
+}
+
+export interface PortalSupplierOrderDto {
+  id: string;
+  trackingNumber: string;
+  description: string;
+  weightKg: number;
+  cbmVolume: number;
+  stage: 'manufacturing' | 'in_transit' | 'delivered';
+  requestedAt: number;
+  updatedAt: number;
+}
+
 export interface PortalAuthGateway {
   login(identifier: string, password: string): Promise<PortalAuthProfileDto>;
   register(input: PortalRegistrationInput): Promise<PortalRegistrationResult>;
@@ -167,6 +209,18 @@ export interface PortalAuthGateway {
   createPaymentRequest(input: PortalPaymentRequestInput, idempotencyKey: string): Promise<PortalPaymentRequestDto>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** === Courier Portal Methods === */
+  /** جلب مهام التوصيل النشطة للمنديب - List courier active delivery tasks */
+  listCourierTasks(): Promise<PortalCourierTaskDto[]>;
+  /** إحصاءات المنديب - Get courier dashboard stats */
+  getCourierStats(): Promise<PortalCourierStatsDto>;
+  /** سجل توصيلات المنديب - Courier delivery ledger */
+  listCourierLedger(): Promise<PortalCourierLedgerEntryDto[]>;
+  /** === Supplier Portal Methods === */
+  /** قائمة طلبات المورد - List supplier orders */
+  listSupplierOrders(): Promise<PortalSupplierOrderDto[]>;
+  /** تحديث بيانات شحنة المورد - Update supplier order CBM/weight */
+  updateSupplierOrder(orderId: string, cbmVolume: number, weightKg: number): Promise<PortalSupplierOrderDto>;
 }
 
 export interface PortalAuthGatewayConfig {
@@ -433,6 +487,43 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
       });
     }
     if (data === null) throw new Error('PORTAL_AUTH_REQUIRED');
+  }
+
+  /** === Courier Portal Implementation === */
+
+  async listCourierTasks(): Promise<PortalCourierTaskDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/courier/tasks?limit=100');
+    if (!Array.isArray(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data as PortalCourierTaskDto[];
+  }
+
+  async getCourierStats(): Promise<PortalCourierStatsDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/courier/stats');
+    if (!isRecord(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data as unknown as PortalCourierStatsDto;
+  }
+
+  async listCourierLedger(): Promise<PortalCourierLedgerEntryDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/courier/ledger?limit=100');
+    if (!Array.isArray(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data as PortalCourierLedgerEntryDto[];
+  }
+
+  /** === Supplier Portal Implementation === */
+
+  async listSupplierOrders(): Promise<PortalSupplierOrderDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/supplier/orders?limit=100');
+    if (!Array.isArray(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data as PortalSupplierOrderDto[];
+  }
+
+  async updateSupplierOrder(orderId: string, cbmVolume: number, weightKg: number): Promise<PortalSupplierOrderDto> {
+    const data = await this.authenticatedRequest(`/api/v1/portal/supplier/orders/${encodeURIComponent(orderId)}`, {
+      method: 'PATCH',
+      body: JSON.stringify({ cbmVolume, weightKg }),
+    });
+    if (!isRecord(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data as unknown as PortalSupplierOrderDto;
   }
 }
 

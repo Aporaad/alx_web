@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Truck, CheckCircle2, DollarSign, Clock, MapPin, Phone, MessageCircle } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { supabase } from '../../api/legacy-portal';
 import type { CourierTask } from '../../types/portalTypes';
 
@@ -23,6 +24,16 @@ export default function CourierDashboard() {
   const loadTasks = async () => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const [apiTasks, apiStats] = await Promise.all([
+          portalAuthGateway.listCourierTasks(),
+          portalAuthGateway.getCourierStats(),
+        ]);
+        setTasks(apiTasks as CourierTask[]);
+        setStats({ today: apiStats.deliveredToday, earnings: apiStats.pendingEarnings });
+        return;
+      }
+
       const { data } = await supabase
         .from('portal_orders')
         .select('*')
@@ -54,6 +65,8 @@ export default function CourierDashboard() {
         .eq('status', 'delivered');
 
       setStats({ today: todayCount || 0, earnings: (todayCount || 0) * 5 });
+    } catch (err) {
+      console.error('[CourierDashboard] Error loading dashboard:', err);
     } finally {
       setLoading(false);
     }

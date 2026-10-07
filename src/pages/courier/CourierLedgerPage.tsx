@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { DollarSign, Download, TrendingUp, CheckCircle } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { supabase } from '../../api/legacy-portal';
 
 export default function CourierLedgerPage() {
@@ -20,6 +21,16 @@ export default function CourierLedgerPage() {
   const loadLedger = async () => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const [ledger, stats] = await Promise.all([
+          portalAuthGateway.listCourierLedger(),
+          portalAuthGateway.getCourierStats(),
+        ]);
+        setDeliveries(ledger);
+        setTotalEarnings(stats.pendingEarnings || ledger.length * 5);
+        return;
+      }
+
       const { data } = await supabase
         .from('portal_orders')
         .select('*')
@@ -30,6 +41,8 @@ export default function CourierLedgerPage() {
       const list = data || [];
       setDeliveries(list);
       setTotalEarnings(list.length * 5); // 5 USD per delivery commission
+    } catch (err) {
+      console.error('[CourierLedgerPage] Error loading ledger:', err);
     } finally {
       setLoading(false);
     }

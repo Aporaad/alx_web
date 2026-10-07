@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { Factory, Package, Layers, DollarSign, ArrowRight, ArrowLeft } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
+import { portalAuthGateway } from '../../api/portalAuthGateway';
 import { supabase } from '../../api/legacy-portal';
 import type { SupplierOrder } from '../../types/portalTypes';
 
@@ -22,6 +23,19 @@ export default function SupplierDashboard() {
   const loadSupplierDashboard = async () => {
     setLoading(true);
     try {
+      if (portalAuthGateway) {
+        const apiOrders = await portalAuthGateway.listSupplierOrders();
+        let cbm = 0;
+        let weight = 0;
+        apiOrders.forEach(o => {
+          cbm += o.cbmVolume || 0;
+          weight += o.weightKg || 0;
+        });
+        setOrders(apiOrders as SupplierOrder[]);
+        setStats({ count: apiOrders.length, totalCbm: Math.round(cbm * 10) / 10, totalWeight: weight, balance: 1250 });
+        return;
+      }
+
       const { data } = await supabase
         .from('portal_orders')
         .select('*')
@@ -50,6 +64,8 @@ export default function SupplierDashboard() {
 
       setOrders(list);
       setStats({ count: list.length, totalCbm: Math.round(cbm * 10) / 10, totalWeight: weight, balance: 1250 });
+    } catch (err) {
+      console.error('[SupplierDashboard] Error loading dashboard:', err);
     } finally {
       setLoading(false);
     }
