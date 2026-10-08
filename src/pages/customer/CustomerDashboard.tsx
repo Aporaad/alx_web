@@ -6,7 +6,6 @@ import {
 } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { getCollection } from '../../api/legacy-portal';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
@@ -38,20 +37,6 @@ export default function CustomerDashboard() {
       setActiveTrackNum(trackInput.trim());
     }
   };
-
-  useEffect(() => {
-    getCollection('order_status').then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        const map: Record<string, string> = {};
-        data.forEach((st: any) => {
-          if (st.nameAr || st.name_ar) {
-            map[st.nameAr || st.name_ar] = st.nameEn || st.name_en || st.nameAr || st.name_ar;
-          }
-        });
-        setStatusMap(map);
-      }
-    }).catch(err => console.error("Error fetching order_status map in CustomerDashboard:", err));
-  }, []);
 
   const loadDashboard = useCallback(async () => {
     if (!user) return;

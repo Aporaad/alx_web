@@ -3,7 +3,6 @@ import { Factory, Edit3, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { queryCollection, updateDocData } from '../../api/legacy-portal';
 import type { SupplierOrder, SupplierOrderStage } from '../../types/portalTypes';
 
 export default function SupplierOrdersPage() {
@@ -31,23 +30,7 @@ export default function SupplierOrdersPage() {
         setOrders(apiOrders as SupplierOrder[]);
         return;
       }
-
-      const cbmOrders = await queryCollection('portal_orders', 'packageType', 'factory_cbm');
-      cbmOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-      const list: SupplierOrder[] = cbmOrders.map((o: any) => ({
-        id: o.id,
-        trackingNumber: o.trackingNumber || o.id.slice(0, 8),
-        description: o.goodsDescription,
-        weightKg: o.weightKg || 100,
-        cbmVolume: o.cbmVolume || 1.5,
-        stage: o.status === 'delivered' ? 'delivered' : 'manufacturing',
-        sourceId: o.customerUid,
-        requestedAt: o.createdAt,
-        updatedAt: o.updatedAt,
-      }));
-
-      setOrders(list);
+      setOrders([]);
     } catch (err) {
       console.error('[SupplierOrdersPage] Error loading orders:', err);
     } finally {
@@ -71,19 +54,6 @@ export default function SupplierOrdersPage() {
         setModalOrder(null);
         return;
       }
-
-      await updateDocData('portal_orders', modalOrder.id, {
-        cbmVolume: cbmInput,
-        weightKg: weightInput,
-        updatedAt: Date.now(),
-      });
-      await updateDocData('orders', modalOrder.id, {
-        cbmVolume: cbmInput,
-        weightKg: weightInput,
-        updatedAt: Date.now(),
-      });
-
-      await loadOrders();
       setModalOrder(null);
     } catch (err) {
       console.error('[SupplierOrdersPage] Error updating order:', err);

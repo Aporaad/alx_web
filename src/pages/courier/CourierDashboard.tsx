@@ -4,7 +4,6 @@ import { Truck, CheckCircle2, DollarSign, Clock, MapPin, Phone, MessageCircle } 
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { supabase } from '../../api/legacy-portal';
 import type { CourierTask } from '../../types/portalTypes';
 
 export default function CourierDashboard() {
@@ -33,38 +32,8 @@ export default function CourierDashboard() {
         setStats({ today: apiStats.deliveredToday, earnings: apiStats.pendingEarnings });
         return;
       }
-
-      const { data } = await supabase
-        .from('portal_orders')
-        .select('*')
-        .eq('courier_id', user?.uid)
-        .in('status', ['accepted', 'in_progress', 'out_for_delivery'])
-        .limit(5);
-
-      const list: CourierTask[] = (data || []).map((o: any) => ({
-        orderId: o.id,
-        trackingNumber: o.tracking_number,
-        customerName: o.customer_name,
-        customerPhone: o.customer_phone,
-        recipientName: o.recipient_name,
-        recipientPhone: o.recipient_phone,
-        recipientAddress: o.recipient_address,
-        deliveryCity: o.delivery_city,
-        status: o.status,
-        cashOnDelivery: o.estimated_cost,
-        currency: o.currency || 'USD',
-        assignedAt: o.updated_at || Date.now(),
-      }));
-
-      setTasks(list);
-
-      const { count: todayCount } = await supabase
-        .from('portal_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('courier_id', user?.uid)
-        .eq('status', 'delivered');
-
-      setStats({ today: todayCount || 0, earnings: (todayCount || 0) * 5 });
+      setTasks([]);
+      setStats({ today: 0, earnings: 0 });
     } catch (err) {
       console.error('[CourierDashboard] Error loading dashboard:', err);
     } finally {

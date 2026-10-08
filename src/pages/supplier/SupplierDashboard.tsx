@@ -4,7 +4,6 @@ import { Factory, Package, Layers, DollarSign, ArrowRight, ArrowLeft } from 'luc
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { supabase } from '../../api/legacy-portal';
 import type { SupplierOrder } from '../../types/portalTypes';
 
 export default function SupplierDashboard() {
@@ -35,35 +34,8 @@ export default function SupplierDashboard() {
         setStats({ count: apiOrders.length, totalCbm: Math.round(cbm * 10) / 10, totalWeight: weight, balance: 1250 });
         return;
       }
-
-      const { data } = await supabase
-        .from('portal_orders')
-        .select('*')
-        .eq('package_type', 'factory_cbm')
-        .order('created_at', { ascending: false })
-        .limit(5);
-
-      const list: SupplierOrder[] = (data || []).map((o: any) => ({
-        id: o.id,
-        trackingNumber: o.tracking_number,
-        description: o.goods_description,
-        weightKg: o.weight_kg || 100,
-        cbmVolume: o.cbm_volume || 1.5,
-        stage: o.status === 'delivered' ? 'delivered' : 'manufacturing',
-        sourceId: o.customer_uid,
-        requestedAt: o.created_at,
-        updatedAt: o.updated_at,
-      }));
-
-      let cbm = 0;
-      let weight = 0;
-      list.forEach(o => {
-        cbm += o.cbmVolume || 0;
-        weight += o.weightKg || 0;
-      });
-
-      setOrders(list);
-      setStats({ count: list.length, totalCbm: Math.round(cbm * 10) / 10, totalWeight: weight, balance: 1250 });
+      setOrders([]);
+      setStats({ count: 0, totalCbm: 0, totalWeight: 0, balance: 0 });
     } catch (err) {
       console.error('[SupplierDashboard] Error loading dashboard:', err);
     } finally {

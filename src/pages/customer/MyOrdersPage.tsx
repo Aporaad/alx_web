@@ -24,9 +24,6 @@ import {
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import {
-  getCollection,
-} from '../../api/legacy-portal';
 import CustomerTrackModal from '../../components/customer/CustomerTrackModal';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -107,12 +104,12 @@ export default function MyOrdersPage({
   });
 
   useEffect(() => {
-    getCollection('order_status').then((data) => {
-      if (Array.isArray(data) && data.length > 0) {
-        data.sort((a: any, b: any) => (Number(a.id) || 0) - (Number(b.id) || 0));
-        setOrderStatuses(data);
-      }
-    }).catch(err => console.error("Error fetching order_status in MyOrdersPage:", err));
+    setOrderStatuses([
+      { id: '1', nameAr: 'معلق', nameEn: 'Pending' },
+      { id: '2', nameAr: 'قيد المعالجة', nameEn: 'Processing' },
+      { id: '3', nameAr: 'تم التسليم', nameEn: 'Delivered' },
+      { id: '4', nameAr: 'مرتجع', nameEn: 'Returned' },
+    ]);
   }, []);
 
   // ── Form state ──────────────────────────────────────────────────────────────
@@ -139,8 +136,6 @@ export default function MyOrdersPage({
   useEffect(() => {
     if (!user) return;
     loadOrders();
-    loadSources();
-    loadDbSettings();
   }, [user]);
 
   const loadOrders = useCallback(async () => {
@@ -155,30 +150,6 @@ export default function MyOrdersPage({
       setLoadingOrders(false);
     }
   }, [user]);
-
-
-  const loadSources = async () => {
-    try {
-      const list = await getCollection('sources');
-      setSources(list || []);
-    } catch (_) { }
-  };
-
-  const loadDbSettings = async () => {
-    try {
-      const setList = await getCollection('settings');
-      if (Array.isArray(setList) && setList.length > 0) {
-        const general = setList.find((s: any) => s.id === 'general') || setList[0];
-        setDbSettings({
-          exchangeRateSAR: Number(general.exchangeRateSAR || general.exchangeRateYER) || 390,
-          exchangeRateUSD: Number(general.exchangeRateUSD) || 535,
-          defaultDeliveryFee: Number(general.defaultDeliveryFee || general.defaultDeliveryRate) || 4000,
-          defaultCompanyProfitRate: Number(general.defaultCompanyProfitRate) || 12,
-          defaultPackagingFee: Number(general.defaultPackagingFee) || 0,
-        });
-      }
-    } catch (_) { }
-  };
 
   // ── Customer stats ───────────────────────────────────────────────────────────
   const customerStats = useMemo(() => {

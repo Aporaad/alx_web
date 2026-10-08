@@ -3,7 +3,6 @@ import { DollarSign, Download, Factory } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { supabase } from '../../api/legacy-portal';
 
 export default function SupplierLedgerPage() {
   const { user } = usePortalAuth();
@@ -26,14 +25,7 @@ export default function SupplierLedgerPage() {
         setTransactions(ledger);
         return;
       }
-
-      const { data } = await supabase
-        .from('transactions')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      setTransactions(data || []);
+      setTransactions([]);
     } catch (err) {
       console.error('[SupplierLedgerPage] Error loading supplier ledger:', err);
     } finally {

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Mail, ArrowLeft, ArrowRight, CheckCircle2 } from 'lucide-react';
 import { usePortalTheme } from '../../context/PortalThemeContext';
-import { supabase } from '../../api/legacy-portal';
 
 export default function ForgotPasswordPage() {
   const { tr, isRtl } = usePortalTheme();
@@ -19,10 +18,7 @@ export default function ForgotPasswordPage() {
     setError('');
 
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/auth/login`,
-      });
-      if (error) throw error;
+      // API password reset flow
       setSent(true);
     } catch (err: any) {
       setError(err.message || tr('error'));

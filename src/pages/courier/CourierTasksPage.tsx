@@ -3,7 +3,6 @@ import { Truck, MapPin, Phone, CheckCircle, XCircle, X, Check } from 'lucide-rea
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { queryByDataField, updateDocData } from '../../api/legacy-portal';
 import type { CourierTask, OrderStatus } from '../../types/portalTypes';
 
 export default function CourierTasksPage() {
@@ -29,30 +28,7 @@ export default function CourierTasksPage() {
         setTasks(apiTasks as CourierTask[]);
         return;
       }
-
-      // Fallback: Query system `orders` table where deliveryCourierId matches courier's linkedAccId or uid
-      let courierOrders = await queryByDataField('orders', 'deliveryCourierId', user?.linkedAccId || user?.uid);
-      if (courierOrders.length === 0) {
-        courierOrders = await queryByDataField('orders', 'courierId', user?.linkedAccId || user?.uid);
-      }
-      courierOrders.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
-
-      const list: CourierTask[] = courierOrders.map((o: any) => ({
-        orderId: o.id,
-        trackingNumber: o.trackingNumber || o.orderNumber || o.id.slice(0, 8),
-        customerName: o.customerName || 'عميل البوابة',
-        customerPhone: o.customerPhone || '',
-        recipientName: o.recipientName || o.customerName || '',
-        recipientPhone: o.recipientPhone || o.customerPhone || '',
-        recipientAddress: o.deliveryAddress || o.recipientAddress || '',
-        deliveryCity: o.deliveryCity || '',
-        status: o.status || 'in_progress',
-        cashOnDelivery: o.amountRemaining || o.totalPrice || 0,
-        currency: o.currency || 'YER',
-        assignedAt: o.updatedAt || Date.now(),
-      }));
-
-      setTasks(list);
+      setTasks([]);
     } catch (err) {
       console.error('[CourierTasksPage] Error loading tasks:', err);
     } finally {
@@ -63,19 +39,7 @@ export default function CourierTasksPage() {
   const handleUpdateStatus = async (orderId: string, newStatus: OrderStatus) => {
     setUpdating(true);
     try {
-      const orderStatusMap: Record<string, string> = {
-        delivered: 'تم التسليم',
-        returned: 'مرتجع / تعذر التسليم',
-        out_for_delivery: 'مع المندوب للتوصيل'
-      };
-
-      await updateDocData('orders', orderId, {
-        status: newStatus,
-        orderStatus: orderStatusMap[newStatus] || newStatus,
-        updatedAt: Date.now()
-      });
-
-      await loadTasks();
+      setTasks((prev) => prev.map((t) => (t.orderId === orderId ? { ...t, status: newStatus } : t)));
       setProofModal(null);
     } finally {
       setUpdating(false);

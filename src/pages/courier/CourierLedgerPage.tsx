@@ -3,7 +3,6 @@ import { DollarSign, Download, TrendingUp, CheckCircle } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import { supabase } from '../../api/legacy-portal';
 
 export default function CourierLedgerPage() {
   const { user } = usePortalAuth();
@@ -30,17 +29,8 @@ export default function CourierLedgerPage() {
         setTotalEarnings(stats.pendingEarnings || ledger.length * 5);
         return;
       }
-
-      const { data } = await supabase
-        .from('portal_orders')
-        .select('*')
-        .eq('courier_id', user?.uid)
-        .eq('status', 'delivered')
-        .order('created_at', { ascending: false });
-
-      const list = data || [];
-      setDeliveries(list);
-      setTotalEarnings(list.length * 5); // 5 USD per delivery commission
+      setDeliveries([]);
+      setTotalEarnings(0);
     } catch (err) {
       console.error('[CourierLedgerPage] Error loading ledger:', err);
     } finally {
