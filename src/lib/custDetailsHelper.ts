@@ -13,7 +13,6 @@ export async function saveCustomerDetails(
   const now = Date.now();
   return {
     id: updates.userUid,
-    userUid: updates.userUid,
     customerId: updates.customerId || '',
     privacyPolicyAgreed: updates.privacyPolicyAgreed ?? false,
     preferredCategories: updates.preferredCategories || [],
