@@ -78,45 +78,56 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     else sessionStorage.removeItem(SESSION_KEY);
   }, []);
 
-  const loadCustomerDetails = useCallback(async () => {
-    const profile = user;
-    if (!profile || profile.portalRole !== 'customer') return;
-    const details = await requirePortalAuthGateway().getCustomerDetails();
-    setCustomerDetails(details);
-  }, [user]);
-
   useEffect(() => {
     let active = true;
     void (async () => {
       try {
         const profile = await requirePortalAuthGateway().getProfile();
         if (active && profile) {
-          persistProfile(toPortalUser(profile, user));
-          if (profile.role === 'customer') setCustomerDetails(await requirePortalAuthGateway().getCustomerDetails());
+          setUser((prev) => {
+            const nextUser = toPortalUser(profile, prev);
+            sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
+            return nextUser;
+          });
+          if (profile.role === 'customer') {
+            try {
+              const details = await requirePortalAuthGateway().getCustomerDetails();
+              if (active) setCustomerDetails(details);
+            } catch {
+              // Ignore background fetch error
+            }
+          }
         }
       } catch (error) {
-        if (active && error instanceof Error && error.message === 'PORTAL_AUTH_REQUIRED') persistProfile(null);
+        if (active && error instanceof Error && error.message === 'PORTAL_AUTH_REQUIRED') {
+          setUser(null);
+          sessionStorage.removeItem(SESSION_KEY);
+        }
       } finally {
         if (active) setInitialized(true);
       }
     })();
     return () => { active = false; };
-  }, [persistProfile, user]);
-
-  useEffect(() => {
-    void loadCustomerDetails();
-  }, [loadCustomerDetails]);
+  }, []);
 
   const login = useCallback(async (identifier: string, password: string) => {
     setLoading(true);
     try {
       const profile = await requirePortalAuthGateway().login(identifier.trim(), password);
-      persistProfile(toPortalUser(profile, user));
-      if (profile.role === 'customer') setCustomerDetails(await requirePortalAuthGateway().getCustomerDetails());
+      let updatedUser: PortalUser | null = null;
+      setUser((prev) => {
+        updatedUser = toPortalUser(profile, prev);
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updatedUser));
+        return updatedUser;
+      });
+      if (profile.role === 'customer') {
+        const details = await requirePortalAuthGateway().getCustomerDetails();
+        setCustomerDetails(details);
+      }
     } finally {
       setLoading(false);
     }
-  }, [persistProfile, user]);
+  }, []);
 
   const register = useCallback(async (formData: RegisterFormData) => {
     setLoading(true);
@@ -137,28 +148,40 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
         ...(formData.courierType !== undefined ? { courierType: formData.courierType } : {}),
         ...(formData.identityDocNote !== undefined ? { identityDocNote: formData.identityDocNote.trim() } : {}),
       });
-      if (!result.pendingApproval) persistProfile(toPortalUser(result.profile));
+      if (!result.pendingApproval) {
+        setUser((prev) => {
+          const nextUser = toPortalUser(result.profile, prev);
+          sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
+          return nextUser;
+        });
+      }
       return { pendingApproval: result.pendingApproval };
     } finally {
       setLoading(false);
     }
-  }, [persistProfile]);
+  }, []);
 
   const logout = useCallback(async () => {
     try { await requirePortalAuthGateway().logout(); }
     finally {
       setCustomerDetails(null);
-      persistProfile(null);
+      setUser(null);
+      sessionStorage.removeItem(SESSION_KEY);
     }
-  }, [persistProfile]);
+  }, []);
 
   const refreshUser = useCallback(async () => {
     const profile = await requirePortalAuthGateway().getProfile();
-    if (profile) persistProfile(toPortalUser(profile, user));
-  }, [persistProfile, user]);
+    if (profile) {
+      setUser((prev) => {
+        const nextUser = toPortalUser(profile, prev);
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
+        return nextUser;
+      });
+    }
+  }, []);
 
   const updateProfile = useCallback(async (updates: Partial<PortalUser>) => {
-    if (!user) return;
     const apiUpdates = {
       ...(updates.fullName ? { fullName: updates.fullName } : {}),
       ...(updates.phone ? { phone: updates.phone } : {}),
@@ -166,18 +189,27 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     };
     if (Object.keys(apiUpdates).length === 0) return;
     const profile = await requirePortalAuthGateway().updateProfile(apiUpdates);
-    persistProfile(toPortalUser(profile, user));
-  }, [persistProfile, user]);
+    setUser((prev) => {
+      const nextUser = toPortalUser(profile, prev);
+      sessionStorage.setItem(SESSION_KEY, JSON.stringify(nextUser));
+      return nextUser;
+    });
+  }, []);
 
   const saveCustomerDetails = useCallback(async (details: Partial<CustomerDetails>) => {
-    if (!user) throw new Error('يرجى تسجيل الدخول أولاً');
     const result = await requirePortalAuthGateway().saveCustomerDetails(details);
     setCustomerDetails(result);
-    if (result.onboardingCompleted !== user.onboardingCompleted) {
-      persistProfile({ ...user, onboardingCompleted: result.onboardingCompleted });
-    }
+    setUser((prev) => {
+      if (!prev) return prev;
+      if (result.onboardingCompleted !== prev.onboardingCompleted) {
+        const updated = { ...prev, onboardingCompleted: result.onboardingCompleted };
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(updated));
+        return updated;
+      }
+      return prev;
+    });
     return result;
-  }, [persistProfile, user]);
+  }, []);
 
   const changePassword = useCallback(async (currentPassword: string, newPassword: string) => {
     await requirePortalAuthGateway().changePassword(currentPassword, newPassword);
