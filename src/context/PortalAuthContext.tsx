@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import type { ReactNode } from 'react';
-import { portalAuthGateway } from '../api/portalAuthGateway';
+import { portalAuthGateway, PORTAL_SESSION_TERMINATED_EVENT } from '../api/portalAuthGateway';
 import type { PortalAuthProfileDto } from '../api/portalAuthGateway';
 import type { PortalUser, CustomerDetails, RegisterFormData } from '../types/portalTypes';
 
@@ -76,6 +76,19 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     setUser(profile);
     if (profile) sessionStorage.setItem(SESSION_KEY, JSON.stringify(profile));
     else sessionStorage.removeItem(SESSION_KEY);
+  }, []);
+
+  // نهاية الجلسة القاطعة تأتي من طبقة البيانات: نُنهي الحالة هنا فيتوقف الجلب بدل طلبات بلا توثيق كل بضع ثوانٍ.
+  // The decisive session end comes from the data layer: state finishes here, so polling stops instead of unauthenticated requests every few seconds.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const onTerminated = () => {
+      setCustomerDetails(null);
+      setUser(null);
+      sessionStorage.removeItem(SESSION_KEY);
+    };
+    window.addEventListener(PORTAL_SESSION_TERMINATED_EVENT, onTerminated);
+    return () => window.removeEventListener(PORTAL_SESSION_TERMINATED_EVENT, onTerminated);
   }, []);
 
   useEffect(() => {

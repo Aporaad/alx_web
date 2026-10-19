@@ -586,6 +586,21 @@ const SESSION_EXPIRES_KEY = 'alx_portal_api_session_expires_at';
 // نهاية رمز الوصول: تُخزَّن حتى يُجدَّد بصمت قبل أول 401 بدل الانتظار حتى يحدث.
 // The access-token deadline: stored so renewal happens silently before the first 401 instead of waiting for one.
 const ACCESS_TOKEN_EXPIRES_KEY = 'alx_portal_api_access_token_expires_at';
+// هامش التجديد الاستباقي: قبل هذه المدة على نهاية الرمز يبدأ التجديد الصامت.
+// Proactive-renewal margin: silent renewal starts this long before the access token lapses.
+const ACCESS_RENEWAL_LEAD_MS = 60_000;
+// قفل الدوران بين التبويبات والنداءات المتزامنة: لا يُرسَل رمز تجديد مرتين أبداً، لأن إعادة الاستخدام تُلغي عائلة الجلسات.
+// Rotation lock across tabs and concurrent calls: a refresh token is never presented twice, because reuse revokes the whole family.
+const REFRESH_LOCK_NAME = 'alx-portal:refresh';
+
+/** إشارة انتهاء الجلسة القاطع: تُصدرها طبقة البيانات ليسمعها مزوّد الحالة فيُنهي الحالة ويوقف الجلب.
+ *  The decisive session-end signal: emitted by the data layer so the auth provider drops state and halts polling. */
+export const PORTAL_SESSION_TERMINATED_EVENT = 'alx-portal:session-terminated';
+
+function announcePortalSessionTermination(): void {
+  if (typeof window === 'undefined') return;
+  window.dispatchEvent(new Event(PORTAL_SESSION_TERMINATED_EVENT));
+}
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -651,14 +666,42 @@ function clearTokens(): void {
   store.removeItem(SESSION_EXPIRES_KEY);
 }
 
+/** يمحو الرموز ويُبلّغ النهاية القاطعة: تمسكه تُنهي حالة العميل فيتوقف الجلب غير الموثّق بدل سيل 401.
+ *  Clears the tokens and broadcasts the decisive end: holders finish the session, so unauthenticated polling stops instead of a 401 flood. */
+function endPortalSession(): void {
+  clearTokens();
+  announcePortalSessionTermination();
+}
+
+/** هل رمز الوصول على وشك الانتهاء مع وجود رمز تجديد؟ التجديد الاستباقي يُسقط عاصفة الـ401 المتوازية من أساسها.
+ *  Is the access token lapsing while a refresh token exists? Proactive renewal removes the parallel-401 storm at its root. */
+function needsProactiveRenewal(): boolean {
+  if (!read(REFRESH_TOKEN_KEY)) return false;
+  const raw = read(ACCESS_TOKEN_EXPIRES_KEY);
+  if (!raw) return false;
+  const deadline = Number(raw);
+  return Number.isFinite(deadline) && deadline - Date.now() <= ACCESS_RENEWAL_LEAD_MS;
+}
+
 export function portalAuthGatewayConfig(): PortalAuthGatewayConfig {
   return portalApiConfig();
 }
 
 class HttpPortalAuthGateway implements PortalAuthGateway {
+  // مسار التجديد معرَّف ثابت: يُميَّز حتى لا يحاول تجديد نفسه داخل طلب التجديد.
+  // The refresh path is a constant so a refresh call never tries to renew itself.
+  private static readonly REFRESH_PATH = '/api/v1/portal/auth/refresh';
+
+  /** عملية التجديد الجارية: كل نداء متزامن ينتظرها بدل أن يدير رمز تجديد آخر ويُثار كشف إعادة الاستخدام.
+   *  The in-flight refresh: concurrent callers await it instead of rotating another refresh token and tripping reuse detection. */
+  private refreshing: Promise<boolean> | null = null;
+
   constructor(private readonly baseUrl: string) {}
 
   private async request(path: string, init: RequestInit = {}, allowUnauthorized = false): Promise<unknown | null> {
+    // التجديد الاستباقي قبل الإرسال: طلبٌ كان سيُرفض 401 يُبدَّل رمزه بصمت، فتموت عاصفة المتوازي في مهدها.
+    // Renewal happens before sending: a request that would have been rejected 401 swaps its token silently, so the parallel storm dies early.
+    if (path !== HttpPortalAuthGateway.REFRESH_PATH && needsProactiveRenewal()) await this.refresh();
     const headers = new Headers(init.headers);
     headers.set('Accept', 'application/json');
     if (init.body) headers.set('Content-Type', 'application/json');
@@ -681,27 +724,56 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return payload.data;
   }
 
-  private async refresh(): Promise<boolean> {
+  /**
+   * تجديدٌ واحد بصوت مسموع: كل نداء متزامن ينتظر نفس العملية، فلا يُعرَض رمز التجديد مرتين. إعادة استخدام رمزٍ مُستهلَك
+   * تجعل الخادم يُلغي عائلته كلها ويسجّل خروج عميلٍ نشط — وهذا هو السبب الذي أثبته ملف HAR (ثلاثة /auth/refresh متزامنة).
+   * Exactly one refresh runs: concurrent callers await the same promise, so a refresh token is never presented twice. Replaying a spent
+   * token makes the server revoke the whole family and signs an active customer out — the cause the HAR proved (three parallel /auth/refresh calls).
+   */
+  private refresh(): Promise<boolean> {
     const refreshToken = read(REFRESH_TOKEN_KEY);
-    if (!refreshToken) return false;
-    // البوابة لا تُنهي جلسة العميل عند عارض: الشبكة/5xx/429 تُعيد false بلا محو، والقاطع وحده (401/403) يُمحو.
-    // The portal never ends a customer session on a transient fault: network/5xx/429 return false without wiping; only a decisive 401/403 clears.
+    if (!refreshToken) return Promise.resolve(false);
+    if (this.refreshing) return this.refreshing;
+    this.refreshing = this.refreshUnderLock(refreshToken)
+      .catch(() => false)
+      .finally(() => { this.refreshing = null; });
+    return this.refreshing;
+  }
+
+  /** قفل بين التبويبات: إن سبقنا تبويبٌ أو نداء أثناء الانتظار فالرمز المخزَّن صار جديدًا وتُنجَز الجلسة بلا دوران ثانٍ.
+   *  Cross-tab lock: if a tab or caller rotated while we waited, the stored token is already new, so the session succeeds without a second rotation. */
+  private async refreshUnderLock(presentedToken: string): Promise<boolean> {
+    if (typeof navigator === 'undefined' || !navigator.locks) return this.rotateRefreshToken(presentedToken);
+    return navigator.locks.request(REFRESH_LOCK_NAME, () => {
+      if (read(REFRESH_TOKEN_KEY) !== presentedToken) return true;
+      return this.rotateRefreshToken(presentedToken);
+    });
+  }
+
+  /** عارضٌ لا يُنهي جلسة عميل: الشبكة/5xx/429 تُعيد false بلا محو، والرفض القاطع يُمحو فقط إن كان الرمز المرفوض هو المخزَّن.
+   *  A transient fault never ends a customer session: network/5xx/429 return false without wiping; only a decisive rejection clears, and only when the rejected token is the stored one. */
+  private async rotateRefreshToken(presentedToken: string): Promise<boolean> {
     try {
-      const data = await this.request('/api/v1/portal/auth/refresh', {
+      const data = await this.request(HttpPortalAuthGateway.REFRESH_PATH, {
         method: 'POST',
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refreshToken: presentedToken }),
       }, true);
-      if (data === null) {
-        clearTokens();
-        return false;
-      }
+      if (data === null) return this.endIfRejectionIsOurs(presentedToken);
       if (!isTokenPair(data)) return false;
       writeTokens(data);
       return true;
     } catch (error) {
-      if (isDecisivePortalAuthFailure(error)) clearTokens();
-      return false;
+      if (!isDecisivePortalAuthFailure(error)) return false;
+      return this.endIfRejectionIsOurs(presentedToken);
     }
+  }
+
+  /** رفضُ رمزٍ لم يعد مخزَّنًا معناه أن تجديدًا أنجح سبقنا: الجلسة حيّة فلا يُمحى شيء.
+   *  Rejecting a token we no longer store means a successful renewal beat us to it: the session is alive, so nothing is wiped. */
+  private endIfRejectionIsOurs(presentedToken: string): boolean {
+    if (read(REFRESH_TOKEN_KEY) !== presentedToken) return true;
+    endPortalSession();
+    return false;
   }
 
   /**
@@ -737,7 +809,7 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
       throw error;
     }
     if (data === null) {
-      clearTokens();
+      endPortalSession();
       return null;
     }
     if (!isProfile(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
@@ -745,10 +817,19 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
   }
 
   private async authenticatedRequest(path: string, init: RequestInit = {}): Promise<unknown> {
+    // لا رمز إطلاقًا: نرفض محليًا بلا شبكة، حتى لا تُغمر الصفحة بطلبات غير موثّقة ترد 401 كما حدث بعد المحو.
+    // No token at all: reject locally without the network, so the page cannot flood unauthenticated 401s as it did after the wipe.
+    if (!read(ACCESS_TOKEN_KEY) && !read(REFRESH_TOKEN_KEY)) throw new Error('PORTAL_AUTH_REQUIRED');
     let data = await this.request(path, init, true);
     if (data === null && await this.refresh()) data = await this.request(path, init, true);
     if (data === null) {
-      clearTokens();
+      if (read(ACCESS_TOKEN_KEY) || read(REFRESH_TOKEN_KEY)) {
+        // عارضٌ لا يُمحو جلسة: الرموز باقية، يفشل هذا الطلب وحده وتُعاوده الصفحة أو المؤقّت بصمت.
+        // A transient fault never wipes a session: the tokens stay, only this request fails, and the page or timer retries it quietly.
+        throw new Error('PORTAL_AUTH_TEMPORARY_FAILURE');
+      }
+      // الرمز مُحيت سابقًا بإعلانها للجلسة: نرفض هذا الطلب فقط بلا محو وإعلان مزدوجين.
+      // The tokens were already cleared, with their broadcast: this request just fails, with no double wipe or announcement.
       throw new Error('PORTAL_AUTH_REQUIRED');
     }
     return data;

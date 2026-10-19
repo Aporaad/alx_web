@@ -18,6 +18,10 @@ const sessionStorageMock: Storage = {
   get length() { return sessionValues.size; },
 };
 
+// الأحداث المُصدَرة على نافذة الاختبار: طبقة البيانات تُبلّغ انتهاء الجلسة القاطع عبرها.
+// Events dispatched on the test window: the data layer broadcasts the decisive session end through them.
+const dispatchedEvents: string[] = [];
+
 describe('Portal Auth API Gateway', () => {
   const fetchMock = vi.fn<typeof fetch>();
   const originalFetch = globalThis.fetch;
@@ -25,10 +29,14 @@ describe('Portal Auth API Gateway', () => {
 
   beforeEach(() => {
     sessionValues.clear();
+    dispatchedEvents.length = 0;
     globalThis.fetch = fetchMock;
     Object.defineProperty(globalThis, 'window', {
       configurable: true,
-      value: { sessionStorage: sessionStorageMock },
+      value: {
+        sessionStorage: sessionStorageMock,
+        dispatchEvent: (event: Event) => { dispatchedEvents.push(event.type); return true; },
+      },
     });
     fetchMock.mockReset();
   });
@@ -213,5 +221,117 @@ describe('Portal Auth API Gateway', () => {
     expect(new Headers(request?.headers).get('Authorization')).toBe('Bearer portal-access');
     expect(new Headers(request?.headers).get('Idempotency-Key')).toBe('pay-request-test-001');
     expect(JSON.parse(String(request?.body))).not.toHaveProperty('financialAccountId');
+  });
+
+  /**
+   * عاصفة التجديد هي سبب تسجيل خروج العميل النشط (أثبتها ملف HAR): ثلاثة طلبات متوازية رأت 401 فأدارت رمز التجديد
+   * نفسه، والثاني والثالث أثارا كشف إعادة الاستخدام عند الخادم فأُلغيت عائلة الجلسات كلها. الآن تجديدٌ واحد بصوت مسموع.
+   * The renewal storm is what signed an active customer out (the HAR proved it): three parallel 401s each rotated the same
+   * refresh token, and the replays tripped the server's reuse detection, revoking the whole family. Now exactly one refresh runs.
+   */
+  it('collapses parallel 401s into one refresh call instead of replaying the refresh token', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'stale-access');
+    sessionValues.set('alx_portal_api_refresh_token', 'refresh-1');
+    sessionValues.set('alx_portal_api_access_token_expires_at', String(Date.now() + 300_000));
+    const presentedBodies: string[] = [];
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/api/v1/portal/auth/refresh')) {
+        presentedBodies.push(String((init as RequestInit | undefined)?.body ?? ''));
+        // بطء الخادم الحقيقي يجعل النداءات تتداخل: بلا انتظار لما يقارب 10-22 ثانية لما يكن هناك سباق.
+        // The real server slowness is what made calls overlap; without a delay there would be no race to lose.
+        await new Promise((resolve) => { setTimeout(resolve, 10); });
+        return jsonResponse(200, {
+          success: true,
+          data: {
+            accessToken: 'fresh-access', refreshToken: 'refresh-2', tokenType: 'Bearer', expiresInSeconds: 600,
+            sessionExpiresAt: new Date(Date.now() + 2_592_000_000).toISOString(),
+          },
+        });
+      }
+      if (new Headers(init?.headers).get('Authorization') !== 'Bearer fresh-access') {
+        return jsonResponse(401, { success: false, error: { code: 'PORTAL_AUTH_INVALID_TOKEN' } });
+      }
+      return jsonResponse(200, { success: true, data: { balance: 25, currency: { code: 'YER', symbol: 'ر.ي' } } });
+    });
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    const balances = await Promise.all([
+      gateway?.getCustomerBalance(),
+      gateway?.getCustomerBalance(),
+      gateway?.getCustomerBalance(),
+    ]);
+
+    expect(balances.every((balance) => balance?.balance === 25)).toBe(true);
+    expect(presentedBodies).toHaveLength(1);
+    expect(presentedBodies[0]).toContain('refresh-1');
+    expect(sessionValues.get('alx_portal_api_refresh_token')).toBe('refresh-2');
+    expect(dispatchedEvents).toEqual([]);
+  });
+
+  /** التجديد الاستباقي يبدّل الرمز قبل أول رفض، فلا تبدأ العاصفة أصلًا.
+   *  Proactive renewal swaps the token before the first rejection, so the storm never starts. */
+  it('renews the access token before the first 401 when its deadline is near', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'old-access');
+    sessionValues.set('alx_portal_api_refresh_token', 'refresh-1');
+    sessionValues.set('alx_portal_api_access_token_expires_at', String(Date.now() + 20_000));
+    const seenAuth: Array<string | null> = [];
+    fetchMock.mockImplementation(async (input, init) => {
+      if (String(input).endsWith('/api/v1/portal/auth/refresh')) {
+        return jsonResponse(200, {
+          success: true,
+          data: { accessToken: 'new-access', refreshToken: 'refresh-2', tokenType: 'Bearer', expiresInSeconds: 600 },
+        });
+      }
+      seenAuth.push(new Headers(init?.headers).get('Authorization'));
+      return jsonResponse(200, { success: true, data: { balance: 5, currency: { code: 'YER', symbol: 'ر.ي' } } });
+    });
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.getCustomerBalance()).resolves.toMatchObject({ balance: 5 });
+
+    expect(seenAuth).toEqual(['Bearer new-access']);
+    expect(sessionValues.get('alx_portal_api_access_token')).toBe('new-access');
+  });
+
+  /** الرفض القاطع وحده ينهي الجلسة — ويُبَلِّغ حتى تتوقف الصفحات عن الجلب بلا توثيق.
+   *  Only a decisive rejection ends the session — and it broadcasts, so pages stop fetching unauthenticated. */
+  it('clears tokens and announces the end on a decisive refresh rejection', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'access-1');
+    sessionValues.set('alx_portal_api_refresh_token', 'refresh-1');
+    sessionValues.set('alx_portal_api_access_token_expires_at', String(Date.now() + 300_000));
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: { code: 'PORTAL_AUTH_INVALID_TOKEN' } }))
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: { code: 'PORTAL_AUTH_INVALID_CREDENTIALS' } }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.getCustomerBalance()).rejects.toThrow('PORTAL_AUTH_REQUIRED');
+
+    expect(sessionValues.size).toBe(0);
+    expect(dispatchedEvents).toEqual(['alx-portal:session-terminated']);
+  });
+
+  /** عارضٌ (5xx/شبكة) لا يمسح جلسة عميلٍ نشط: يبقى الرمز ويفشل الطلب الحالي وحده.
+   *  A transient fault (5xx/network) never wipes an active session: the tokens stay and only this request fails. */
+  it('keeps the session when the refresh endpoint fails transiently', async () => {
+    sessionValues.set('alx_portal_api_access_token', 'access-1');
+    sessionValues.set('alx_portal_api_refresh_token', 'refresh-1');
+    sessionValues.set('alx_portal_api_access_token_expires_at', String(Date.now() + 300_000));
+    fetchMock
+      .mockResolvedValueOnce(jsonResponse(401, { success: false, error: { code: 'PORTAL_AUTH_INVALID_TOKEN' } }))
+      .mockResolvedValueOnce(new Response('gateway timeout', { status: 504 }));
+
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.getCustomerBalance()).rejects.toThrow('PORTAL_AUTH_TEMPORARY_FAILURE');
+
+    expect(sessionValues.get('alx_portal_api_refresh_token')).toBe('refresh-1');
+    expect(dispatchedEvents).toEqual([]);
+  });
+
+  /** بلا رموز على الإطلاق لا تُرسل طلبات عبثية: لا سيل 401 غير الموثّق كما ظهر في الـHAR بعد المحو.
+   *  With no tokens at all nothing is sent pointlessly: no unauthenticated 401 flood as the HAR showed after the wipe. */
+  it('refuses to fetch protected data without any stored token', async () => {
+    const gateway = createPortalAuthGateway({ apiBaseUrl: 'https://api.example.test', enabled: true });
+    await expect(gateway?.listCustomerLedger()).rejects.toThrow('PORTAL_AUTH_REQUIRED');
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 });
