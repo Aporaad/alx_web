@@ -1,4 +1,5 @@
 import type { ApprovalStatus, CustomerDetails, PortalRole } from '../types/portalTypes';
+import { portalApiConfig } from './config';
 
 export type PortalTicketType = 'inquiry' | 'suggestion' | 'complaint';
 
@@ -16,6 +17,35 @@ export interface PortalTicketDto {
   createdAt: number;
 }
 
+/** طلب توظيف (§4.8/D5): حقول مقدم الطلب فقط؛ الحالة يديرها الموظف. */
+/** Job request (D5): applicant fields only; status is staff-managed. */
+export interface PortalJobRequestDto {
+  id: string;
+  fullName?: string;
+  phone?: string;
+  email?: string;
+  jobPosition?: string;
+  category?: string;
+  city?: string;
+  qualification?: string;
+  experienceYears?: number;
+  notes?: string;
+  status: string;
+  createdAt: number;
+}
+
+export interface PortalJobRequestInput {
+  fullName: string;
+  phone: string;
+  email?: string;
+  jobPosition: string;
+  category?: string;
+  city?: string;
+  qualification?: string;
+  experienceYears?: number;
+  notes?: string;
+}
+
 export interface PortalOrderDto {
   id: string;
   orderNumber: string;
@@ -26,10 +56,215 @@ export interface PortalOrderDto {
   [customerVisibleField: string]: unknown;
 }
 
+/** مصدر شراء مفعّل يُعرض في الخطوة الأولى من نموذج الطلب — لا بيانات خاصة. */
+export interface PortalOrderSourceDto {
+  id: string;
+  name: string;
+  type: string;
+}
+
+/** صنف من أصناف العميل (order_items) بلا معرّفات مصدر داخلية ولا تكلفة/ربح. */
+export interface PortalCustomerOrderItemDto {
+  orderItemId: string;
+  orderId: string;
+  orderNumber: string;
+  productName: string;
+  productUrl?: string;
+  quantity: number;
+  productPrice: number;
+  unitWeight: number;
+  unitCbm: number;
+  trackingNumber?: string;
+  itemsStatus?: string;
+  createdAt: number;
+}
+
+/** لقطة آخر طلب لمنتج سبق للعميل طلبه — تُستخدم في زر "اختيار منتج سابق". */
+export interface PortalPreviousProductDto {
+  productName: string;
+  productUrl?: string;
+  quantity: number;
+  productPrice: number;
+  unitWeight: number;
+  unitCbm: number;
+  timesOrdered: number;
+  lastOrderedAt: number;
+}
+
+/** عنصر سلة/مرتجعات العميل — بلا تكلفة أو ربح أو معرّفات داخلية غير مرتبطة به. */
+export interface PortalCartItemDto {
+  returnId: string;
+  orderId?: string;
+  orderNumber?: string;
+  productName: string;
+  productUrl?: string;
+  quantity: number;
+  returnStatus?: string;
+  returnedAt: number;
+}
+
+/** شحنة العميل — بلا تكلفة شحن داخلية ولا معرّف ناقل. */
+export interface PortalShipmentDto {
+  shipmentId: string;
+  orderId: string;
+  orderNumber: string;
+  trackingNumber: string;
+  status: string;
+  orderStatus?: string;
+  shippingType?: string;
+  source?: string;
+  destination?: string;
+  contentCategoryName?: string;
+  cartonCount?: number;
+  weight?: number;
+  shippedAt?: number;
+  expectedArrival?: number;
+  deliveredAt?: number;
+  createdAt: number;
+}
+
+/** خيار بنك في خطوة الدفع (D4): رمز الحساب + الاسم فقط — لا رصيد ولا كيان. */
+export interface PortalBankDto {
+  accountId: string;
+  accountCode: string;
+  name: string;
+}
+
+/** خيار مرجعي من order_option (فئة شحن أو تغليف). */
+export interface PortalReferenceOptionDto {
+  id: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  price: number;
+  duration: number;
+}
+
+/** فئة محتوى شحنة من items_category — تشمل رسوم الكرتون. */
+export interface PortalItemCategoryDto {
+  id: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  feeCurrency: string;
+  customsPerCarton: number;
+  taxPerCarton: number;
+  otherFeesPerCarton: number;
+  requiresReview: boolean;
+}
+
+/** حالة طلب مرجعية من order_status — للعرض/الفلترة. */
+export interface PortalOrderStatusDto {
+  id: string;
+  nameAr: string;
+  nameEn: string;
+  color: string;
+  sortOrder: number;
+}
+
+/** إعدادات نموذج البوابة من الخادم: تأمين افتراضي + عملة افتراضية + مدة شحن افتراضية (بلا أسرار). */
+export interface PortalFormSettingsDto {
+  defaultProductInsuranceFee: number;
+  defaultCurrencyCode: string;
+  defaultCurrencySymbol: string;
+  /** مدة الشحن الافتراضية بالأيام من settings_general — تُعبّئ حقل المدة للقراءة فقط. */
+  /** Default shipping duration in days from settings_general — fills the read-only duration field. */
+  defaultShippingDurationDays: number;
+}
+
+/**
+ * جسم إنشاء شحنة من البوابة (POST /portal/shipments) — مدة الوصول والوصول المتوقع يحسبهما الخادم
+ * من الإعدادات ولا يُقبلان من العميل.
+ * Portal shipment-create body (POST /portal/shipments) — duration and expected arrival are computed
+ * server-side from settings and never accepted from the customer.
+ */
+export interface PortalShipmentCreateInput {
+  contentCategoryId?: string;
+  cartonCount: number;
+  weight: number;
+  shippingType?: string;
+  shippingSource?: string;
+  shippingDestination?: string;
+  description?: string;
+  paymentCurrencyCode?: string;
+  payLater?: boolean;
+  amountPaid?: number;
+  bankReference?: string;
+  bankAccountId?: string;
+}
+
+/** معاينة رقم الطلب/الشحنة (ALX-YYMM-nnnn) محسوبة خادميًا على طلبات العميل نفسه؛ غير محفوظة. */
+export interface PortalOrderCodePreviewDto {
+  previewCode: string;
+}
+
+/** عملة مرجعية من currency مع آخر سعر صرف (الأساس=1) لأداة المصارفة. */
+export interface PortalCurrencyRefDto {
+  currencyId: string;
+  code: string;
+  nameAr: string;
+  nameEn: string;
+  symbol: string;
+  flag: string;
+  isDefault: boolean;
+  rate: number;
+}
+
+/** عملة محلولة من public.currency — رمز + رمز مختصر (D2، بلا حرفية). */
+export interface PortalCurrencyDto {
+  code: string;
+  symbol: string;
+}
+
+/**
+ * عرض سعر من الخادم: المستحق بعملة واحدة + وزن/حجم. لا ربح/تكلفة داخلية/سعر صرف.
+ * Server quote: single payable + weight/CBM. No profit, internal shipping cost, or FX rate.
+ * الحقول الاختيارية = تكاليف موجّهة للعميل فقط (تغليف/تأمين/كوبون) ومصروفة لعملة الدفع عند الطلب.
+ * Optional fields are customer-facing charges only (packaging/insurance/coupon) plus FX payable.
+ */
+export interface PortalOrderQuoteDto {
+  payableAmount: number;
+  currency: PortalCurrencyDto;
+  totalWeight: number;
+  totalCBM: number;
+  packagingOptionsFee?: number;
+  productInsuranceFee?: number;
+  couponDeduction?: number;
+  paymentPayable?: {
+    amount: number;
+    currency: PortalCurrencyDto;
+    rate: number;
+  };
+}
+
+/** رصيد الحساب المالي للعميل المرتبط فقط، بعملة الحساب نفسه. */
+export interface PortalCustomerBalanceDto {
+  balance: number;
+  currency: PortalCurrencyDto;
+}
+
+/** إحصاءات مالية على طلبات العميل المملوكة فقط: عدّ بالحالة + مدفوع/متبقٍّ بعملة المستحق. */
+export interface PortalCustomerFinanceStatsDto {
+  totalOrders: number;
+  statusCounts: Record<string, number>;
+  totalPaid: number;
+  totalOutstanding: number;
+  currency: PortalCurrencyDto;
+}
+
+/** حقول تواصل قابلة للتعديل على طلب المعلّق (D7) — نصّية فقط. */
+export interface PortalCustomerOrderUpdateFields {
+  recipientName?: string;
+  recipientPhone?: string;
+  recipientAddress?: string;
+  deliveryCity?: string;
+  goodsDescription?: string;
+}
+
 export interface PortalPaymentRequestDto {
   id: string;
   amount: number;
-  currency: 'YER' | 'USD' | 'SAR';
+  currency: string;
   paymentMethod: 'cash' | 'transfer' | 'wallet' | 'check';
   reference?: string;
   notes?: string;
@@ -46,6 +281,9 @@ export interface PortalPaymentRequestInput {
   paymentMethod: PortalPaymentRequestDto['paymentMethod'];
   reference?: string;
   notes?: string;
+  /** حساب البنك المحوَّل إليه — يبني القيد غير المرحّل (مدين: بنك 112 / دائن: حساب العميل). */
+  /** The transferred-to bank account — builds the draft entry (debit: bank 112 / credit: customer account). */
+  bankAccountId?: string;
 }
 
 export interface PortalLedgerEntryDto {
@@ -61,6 +299,43 @@ export interface PortalLedgerEntryDto {
   description?: string;
   note?: string;
   createdAt: number;
+}
+
+/** إعلان عام للوحة التحكم — نص عام بلا بيانات ملكية أو داخلية. */
+export interface PortalAnnouncementDto {
+  id: string;
+  title: string;
+  content: string;
+  priority: 'normal' | 'high' | 'urgent';
+  createdAt: number;
+}
+
+/** حركة ضمن كشف حساب العميل — بلا معرّف حساب داخلي ولا رقم عملة داخلية (D3). */
+export interface PortalStatementEntryDto {
+  entryNumber: string;
+  transType: string;
+  amount: number;
+  paymentMethod?: string;
+  description?: string;
+  note?: string;
+  createdAt: number;
+}
+
+/** كشف حساب مخصص (D3): حركات مُرحّلة مملوكة للعميل ضمن فترة/نوع + عملة الحساب. */
+export interface PortalCustomerStatementDto {
+  currency: PortalCurrencyDto;
+  from?: number;
+  to?: number;
+  type?: string;
+  entries: PortalStatementEntryDto[];
+}
+
+export interface PortalStatementQuery {
+  from?: number;
+  to?: number;
+  type?: string;
+  limit?: number;
+  offset?: number;
 }
 
 export type PortalCustomerDetailsDto = CustomerDetails;
@@ -82,6 +357,8 @@ export interface PortalOrderCreateInput {
   orderSourceId?: string;
   externalOrderNumber?: string;
   cartShareCode?: string;
+  /** رقم التتبع الدولي الذي يدخله العميل في الخطوة 1 (نص حر كما نموذج النظام). */
+  trackingNumber?: string;
   items: Array<{
     productName: string;
     productUrl?: string;
@@ -93,12 +370,31 @@ export interface PortalOrderCreateInput {
     width?: number;
     height?: number;
     trackingNumber?: string;
+    /** فئة الصنف من items_category (بيانات حقيقية) — تُحفَظ داخل order_data. */
+    itemCategoryId?: string;
+    itemCategoryName?: string;
+    /** خيار التغليف من order_option — السعر يُقبل من الخادم فقط. */
+    packagingOptionId?: string;
+    packagingOptionPrice?: number;
+    isInsured?: boolean;
+    insuranceFee?: number;
   }>;
   packagingType: 'normal' | 'gift' | 'vip';
   isUrgent: boolean;
   packageType: 'standard' | 'express' | 'factory_cbm' | 'heavy';
   paymentMethod?: 'Cash' | 'Transfer' | 'Wallet';
   notes?: string;
+  /** كوبون الخصم (الخطوة 2) — مبلغ يخصمه الخادم (D8). */
+  couponEnabled?: boolean;
+  couponRate?: number;
+  /** دفعة الخطوة 4 عبر بنك — الخادم يحلّ العملة ويحوّل ويسقف المدفوع. */
+  payLater?: boolean;
+  amountPaid?: number;
+  paymentCurrencyCode?: string;
+  bankReference?: string;
+  bankAccountId?: string;
+  /** فئة الشحن (الخطوة 3) من order_option (shipping_category) — تُخزَّن داخل order_data. لا DDL. */
+  shippingCategoryId?: string;
 }
 
 export interface PortalAuthProfileDto {
@@ -148,7 +444,10 @@ interface PortalAuthTokenPairDto {
   accessToken: string;
   refreshToken: string;
   tokenType: 'Bearer';
+  /** عمر رمز الوصول بالثواني كما أعاده الخادم، لجدولة التجديد قبل انتهائه. The access-token lifetime from the server, so renewal is armed before it lapses. */
   expiresInSeconds: number;
+  /** نهاية نافذة الخمول من زمن الخادم؛ تُستخدم لجدولة التجديد الصامت. The server's idle deadline, used to schedule silent renewal. */
+  sessionExpiresAt?: string;
 }
 
 export interface PortalCourierTaskDto {
@@ -202,13 +501,64 @@ export interface PortalAuthGateway {
   saveCustomerDetails(input: PortalCustomerDetailsUpdateInput): Promise<PortalCustomerDetailsDto>;
   listTickets(): Promise<PortalTicketDto[]>;
   createTicket(input: { type: PortalTicketType; subject: string; message: string }): Promise<PortalTicketDto>;
+  listJobRequests(): Promise<PortalJobRequestDto[]>;
+  createJobRequest(input: PortalJobRequestInput): Promise<PortalJobRequestDto>;
   listCustomerOrders(search?: string): Promise<PortalOrderDto[]>;
   createCustomerOrder(input: PortalOrderCreateInput, idempotencyKey: string): Promise<PortalOrderDto>;
+  /** قائمة مصادر الشراء المفعّلة (الخطوة 1) - Active purchase sources for wizard step 1 */
+  listOrderSources(): Promise<PortalOrderSourceDto[]>;
+  /** أصناف العميل (order_items) لطلباته فقط — تبويب "منتجاتي" */
+  listCustomerOrderItems(search?: string): Promise<PortalCustomerOrderItemDto[]>;
+  /** منتجات العميل السابقة فقط — زر "اختيار منتج سابق" (الخطوة 2) */
+  listCustomerPreviousProducts(search?: string): Promise<PortalPreviousProductDto[]>;
+  /** سلة العميل: مرتجعات/عناصر مرتبطة به فقط — لا تسريب لبيانات ملكية أخرى */
+  listCustomerCart(): Promise<PortalCartItemDto[]>;
+  /** شحنات طلبات العميل — تبويب "الشحنات" */
+  listCustomerShipments(search?: string): Promise<PortalShipmentDto[]>;
+  /** إنشاء شحنة حقيقية (طلب حاوية + صف shipments) — المدة والوصول المتوقع من إعدادات الخادم. */
+  /** Create a real shipment (container order + shipments row) — duration/arrival come from server settings. */
+  createCustomerShipment(input: PortalShipmentCreateInput, idempotencyKey: string): Promise<PortalShipmentDto>;
+  /** تتبّع شحنة يملكها العميل برقمها؛ لا يملكها → null (404 بلا تسريب وجود) */
+  getTrackingByNumber(trackingNumber: string): Promise<PortalShipmentDto | null>;
+  /** قائمة البنوك لخطوة الدفع (D4) — من شجرة الحسابات، بلا أرصدة */
+  listBanks(): Promise<PortalBankDto[]>;
+  /** عملات مرجعية مع أسعار الصرف (لقوائم العملة + أداة المصارفة). */
+  listCurrencies(): Promise<PortalCurrencyRefDto[]>;
+  /** فئات الشحن من order_option (نوع=shipping_category). */
+  listShippingCategories(): Promise<PortalReferenceOptionDto[]>;
+  /** خيارات التغليف من order_option (نوع=packaging). */
+  listPackagingOptions(): Promise<PortalReferenceOptionDto[]>;
+  /** فئات محتوى الشحنات من items_category. */
+  listItemCategories(): Promise<PortalItemCategoryDto[]>;
+  /** حالات الطلب المرجعية من order_status. */
+  listOrderStatuses(): Promise<PortalOrderStatusDto[]>;
+  /** إعدادات نموذج الطلب: عملة افتراضية + رسوم تأمين من الإعدادات. */
+  getFormSettings(): Promise<PortalFormSettingsDto>;
+  /** معاينة رقم الطلب القادم قبل الإنشاء (ALX-YYMM-nnnn). */
+  previewOrderCode(): Promise<PortalOrderCodePreviewDto>;
+  /** عرض سعر على الخادم بنفس محرّك الإنشاء؛ يعيد المستحق بعملة واحدة فقط (D2) */
+  quoteCustomerOrder(input: PortalOrderCreateInput): Promise<PortalOrderQuoteDto>;
+  /** الرصيد المالي لحساب العميل المرتبط فقط، بعملة الحساب نفسه (D3) */
+  getCustomerBalance(): Promise<PortalCustomerBalanceDto>;
+  /** إحصاءات مالية على طلبات العميل المملوكة فقط: عدّ بالحالة + مدفوع/متبقٍّ (D3) */
+  getCustomerFinanceStats(): Promise<PortalCustomerFinanceStatsDto>;
+  /** حذف طلب يملكه العميل وهو معلّق فقط (D7)؛ الخادم يفرّق 404/409 بأكواد ثابتة */
+  deleteCustomerOrder(orderId: string): Promise<void>;
+  /** تعديل حقول تواصل على طلب يملكه العميل وهو معلّق فقط (D7) */
+  updateCustomerOrder(orderId: string, fields: PortalCustomerOrderUpdateFields): Promise<PortalOrderDto>;
   listPaymentRequests(): Promise<PortalPaymentRequestDto[]>;
   listCustomerLedger(): Promise<PortalLedgerEntryDto[]>;
+  /** إعلانات عامة للوحة التحكم — نص عام فقط، بلا ملكية أو أسرار. */
+  listAnnouncements(): Promise<PortalAnnouncementDto[]>;
+  /** كشف حساب مخصص (D3): حركات العميل المملوكة ضمن فترة/نوع، بعملة الحساب. */
+  getCustomerStatement(query: PortalStatementQuery): Promise<PortalCustomerStatementDto>;
   createPaymentRequest(input: PortalPaymentRequestInput, idempotencyKey: string): Promise<PortalPaymentRequestDto>;
   logout(): Promise<void>;
   changePassword(currentPassword: string, newPassword: string): Promise<void>;
+  /** تجديد صامت مجدوَل من زمن الخادم حتى مع خمول العميل. Scheduled silent renewal, server-clock driven, works even when the customer is idle. */
+  renewSession(): Promise<boolean>;
+  /** موعد التجديد الصامت التالي (أقرب نهاية: رمز الوصول أم الجلسة) أو null. The next silent-renewal deadline — whichever of the access-token or session deadlines comes first — or null. */
+  getNextRenewalAt(): number | null;
   /** === Courier Portal Methods === */
   /** جلب مهام التوصيل النشطة للمنديب - List courier active delivery tasks */
   listCourierTasks(): Promise<PortalCourierTaskDto[]>;
@@ -230,6 +580,12 @@ export interface PortalAuthGatewayConfig {
 
 const ACCESS_TOKEN_KEY = 'alx_portal_api_access_token';
 const REFRESH_TOKEN_KEY = 'alx_portal_api_refresh_token';
+// نهاية نافذة الخمول التي أعادها الخادم: تُخزَّن ليجدول التجديد الصامت من زمن الخادم لا من تخمين العميل.
+// The server's idle deadline: stored so silent renewal schedules from the server's clock, not the client's guess.
+const SESSION_EXPIRES_KEY = 'alx_portal_api_session_expires_at';
+// نهاية رمز الوصول: تُخزَّن حتى يُجدَّد بصمت قبل أول 401 بدل الانتظار حتى يحدث.
+// The access-token deadline: stored so renewal happens silently before the first 401 instead of waiting for one.
+const ACCESS_TOKEN_EXPIRES_KEY = 'alx_portal_api_access_token_expires_at';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -259,6 +615,13 @@ function isTokenPair(value: unknown): value is PortalAuthTokenPairDto {
     && typeof value.expiresInSeconds === 'number';
 }
 
+/** رفض قاطع من الخادم يعني انتهاء الجلسة: الرمز غير الصالح أو معاد استخدامه، فإما التمديد أو النهاية بلا رجعة.
+ *  A decisive server rejection means the session is over: an invalid or reused token, so it ends irrevocably.
+ *  Anything else (الشبكة/5xx/429) عارض ويجب ألّا يُمحو جلسة عميلٍ نشط. Everything else (network/5xx/429) is transient and must never wipe an active customer's session. */
+function isDecisivePortalAuthFailure(error: unknown): boolean {
+  return error instanceof Error && error.message === 'PORTAL_AUTH_INVALID_CREDENTIALS';
+}
+
 function storage(): Storage | null {
   if (typeof window === 'undefined') return null;
   return window.sessionStorage;
@@ -269,26 +632,27 @@ function read(key: string): string | null {
 }
 
 function writeTokens(tokens: PortalAuthTokenPairDto): void {
-  storage()?.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
-  storage()?.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  const store = storage();
+  if (!store) return;
+  store.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+  store.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+  store.setItem(ACCESS_TOKEN_EXPIRES_KEY, String(Date.now() + Math.max(0, tokens.expiresInSeconds) * 1000));
+  // نهاية الجلسة من زمن الخادم: مع أمد رمز التجديد تصبح بعيدة جدًا، فيبقى الموعد الأقرب هو المحرِّك.
+  // The server's session deadline: with the refresh-token horizon it is far out, so the nearer deadline drives renewal.
+  if (tokens.sessionExpiresAt) store.setItem(SESSION_EXPIRES_KEY, String(Date.parse(tokens.sessionExpiresAt)));
 }
 
 function clearTokens(): void {
-  storage()?.removeItem(ACCESS_TOKEN_KEY);
-  storage()?.removeItem(REFRESH_TOKEN_KEY);
+  const store = storage();
+  if (!store) return;
+  store.removeItem(ACCESS_TOKEN_KEY);
+  store.removeItem(REFRESH_TOKEN_KEY);
+  store.removeItem(ACCESS_TOKEN_EXPIRES_KEY);
+  store.removeItem(SESSION_EXPIRES_KEY);
 }
 
 export function portalAuthGatewayConfig(): PortalAuthGatewayConfig {
-  const apiBaseUrl = String(
-    import.meta.env.VITE_PORTAL_API_BASE_URL
-      || import.meta.env.VITE_ALX_API_URL
-      || import.meta.env.VITE_API_BASE_URL
-      || '',
-  ).replace(/\/$/, '');
-  return {
-    apiBaseUrl,
-    enabled: apiBaseUrl.length > 0 && import.meta.env.VITE_PORTAL_AUTH_API_ENABLED !== 'false',
-  };
+  return portalApiConfig();
 }
 
 class HttpPortalAuthGateway implements PortalAuthGateway {
@@ -320,13 +684,48 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
   private async refresh(): Promise<boolean> {
     const refreshToken = read(REFRESH_TOKEN_KEY);
     if (!refreshToken) return false;
-    const data = await this.request('/api/v1/portal/auth/refresh', {
-      method: 'POST',
-      body: JSON.stringify({ refreshToken }),
-    });
-    if (!isTokenPair(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
-    writeTokens(data);
-    return true;
+    // البوابة لا تُنهي جلسة العميل عند عارض: الشبكة/5xx/429 تُعيد false بلا محو، والقاطع وحده (401/403) يُمحو.
+    // The portal never ends a customer session on a transient fault: network/5xx/429 return false without wiping; only a decisive 401/403 clears.
+    try {
+      const data = await this.request('/api/v1/portal/auth/refresh', {
+        method: 'POST',
+        body: JSON.stringify({ refreshToken }),
+      }, true);
+      if (data === null) {
+        clearTokens();
+        return false;
+      }
+      if (!isTokenPair(data)) return false;
+      writeTokens(data);
+      return true;
+    } catch (error) {
+      if (isDecisivePortalAuthFailure(error)) clearTokens();
+      return false;
+    }
+  }
+
+  /**
+   * تجديد صامت مجدوَل من زمن الخادم: تُنادى دوريًا حتى مع خمول العميل فلا تنتهي جلسته ولا يشعر بانقطاع.
+   * Scheduled silent renewal driven by the server clock: called periodically even while the customer is idle,
+   * so their session never lapses and they feel no interruption.
+   */
+  async renewSession(): Promise<boolean> {
+    if (!read(REFRESH_TOKEN_KEY)) return false;
+    return this.refresh();
+  }
+
+  /** يعيد موعد التجديد الصامت التالي: أقرب نهاية بين رمز الوصول والجلسة، أو null حين لا موعد.
+   *  Returns the next silent-renewal deadline — the earlier of the access-token and session deadlines — or null. */
+  getNextRenewalAt(): number | null {
+    const deadlines = [ACCESS_TOKEN_EXPIRES_KEY, SESSION_EXPIRES_KEY]
+      .map((key) => {
+        const raw = read(key);
+        if (!raw) return null;
+        const parsed = Number(raw);
+        return Number.isFinite(parsed) ? parsed : null;
+      })
+      .filter((value): value is number => value !== null);
+    return deadlines.length ? Math.min(...deadlines) : null;
   }
 
   private async getProfileWithRefresh(): Promise<PortalAuthProfileDto | null> {
@@ -418,6 +817,21 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return data;
   }
 
+  async listJobRequests(): Promise<PortalJobRequestDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/job-requests');
+    if (!Array.isArray(data) || !data.every(isPortalJobRequest)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async createJobRequest(input: PortalJobRequestInput): Promise<PortalJobRequestDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/job-requests', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    if (!isPortalJobRequest(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
   async listCustomerOrders(search?: string): Promise<PortalOrderDto[]> {
     const normalizedSearch = search?.trim();
     const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}&limit=100` : '';
@@ -436,6 +850,173 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
     return data;
   }
 
+  async listOrderSources(): Promise<PortalOrderSourceDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/sources');
+    if (!Array.isArray(data) || !data.every(isPortalOrderSource)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listCustomerOrderItems(search?: string): Promise<PortalCustomerOrderItemDto[]> {
+    const normalizedSearch = search?.trim();
+    const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}&limit=100` : '?limit=100';
+    const data = await this.authenticatedRequest(`/api/v1/portal/orders/items${query}`);
+    if (!Array.isArray(data) || !data.every(isPortalCustomerOrderItem)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listCustomerPreviousProducts(search?: string): Promise<PortalPreviousProductDto[]> {
+    const normalizedSearch = search?.trim();
+    const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}&limit=100` : '?limit=100';
+    const data = await this.authenticatedRequest(`/api/v1/portal/orders/previous-products${query}`);
+    if (!Array.isArray(data) || !data.every(isPortalPreviousProduct)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listCustomerCart(): Promise<PortalCartItemDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/cart?limit=100');
+    if (!Array.isArray(data) || !data.every(isPortalCartItem)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listCustomerShipments(search?: string): Promise<PortalShipmentDto[]> {
+    const normalizedSearch = search?.trim();
+    const query = normalizedSearch ? `?search=${encodeURIComponent(normalizedSearch)}&limit=100` : '?limit=100';
+    const data = await this.authenticatedRequest(`/api/v1/portal/shipments${query}`);
+    if (!Array.isArray(data) || !data.every(isPortalShipment)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  // إنشاء الشحنة الحقيقية: الخادم يبني طلب حاوية + صف shipments بمدة/وصول من الإعدادات.
+  // Real shipment creation: the server builds a container order + shipments row with settings-driven duration/arrival.
+  async createCustomerShipment(input: PortalShipmentCreateInput, idempotencyKey: string): Promise<PortalShipmentDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/shipments', {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey },
+      body: JSON.stringify(input),
+    });
+    if (!isPortalShipment(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  // رقم لا يملكه العميل يرجع 404/PORTAL_TRACKING_NOT_FOUND من الخادم → null محليًا دون كشف وجود الشحنة لدى غيره.
+  // A number outside the customer's ownership returns 404 server-side and maps to null here, never leaking existence.
+  async getTrackingByNumber(trackingNumber: string): Promise<PortalShipmentDto | null> {
+    const normalized = trackingNumber.trim();
+    if (!normalized) return null;
+    try {
+      const data = await this.authenticatedRequest(`/api/v1/portal/tracking/${encodeURIComponent(normalized)}`);
+      if (data === null || data === undefined) return null;
+      if (!isPortalShipment(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+      return data;
+    } catch (error) {
+      if (error instanceof Error && error.message === 'PORTAL_TRACKING_NOT_FOUND') return null;
+      throw error;
+    }
+  }
+
+  async listBanks(): Promise<PortalBankDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/banks');
+    if (!Array.isArray(data) || !data.every(isPortalBank)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listCurrencies(): Promise<PortalCurrencyRefDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/currencies');
+    if (!Array.isArray(data) || !data.every(isPortalCurrencyRef)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listShippingCategories(): Promise<PortalReferenceOptionDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/reference/shipping-categories');
+    if (!Array.isArray(data) || !data.every(isPortalReferenceOption)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listPackagingOptions(): Promise<PortalReferenceOptionDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/reference/packaging-options');
+    if (!Array.isArray(data) || !data.every(isPortalReferenceOption)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listItemCategories(): Promise<PortalItemCategoryDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/reference/item-categories');
+    if (!Array.isArray(data) || !data.every(isPortalItemCategory)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listOrderStatuses(): Promise<PortalOrderStatusDto[]> {
+    const data = await this.authenticatedRequest('/api/v1/portal/reference/order-statuses');
+    if (!Array.isArray(data) || !data.every(isPortalOrderStatus)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  // إعدادات النموذج (تأمين افتراضي + عملة افتراضية) من الخادم؛ تُغذّي حقل التأمين وعرض العملة بلا قيم ثابتة.
+  // Form settings (default insurance + default currency) from the server; feed the insurance field and currency display with no literals.
+  async getFormSettings(): Promise<PortalFormSettingsDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/reference/form-settings');
+    if (!data || typeof data !== 'object' || Array.isArray(data)
+      || typeof (data as PortalFormSettingsDto).defaultProductInsuranceFee !== 'number'
+      || typeof (data as PortalFormSettingsDto).defaultCurrencyCode !== 'string'
+      || typeof (data as PortalFormSettingsDto).defaultShippingDurationDays !== 'number') {
+      throw new Error('PORTAL_API_INVALID_RESPONSE');
+    }
+    return data as PortalFormSettingsDto;
+  }
+
+  // معاينة رقم الطلب/الشحنة (عرض فقط) — الخادم يحسبه من طلبات هذا العميل نفسه.
+  // Order/shipment code preview (display only) — computed server-side from this customer's own orders.
+  async previewOrderCode(): Promise<PortalOrderCodePreviewDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/orders/preview-code');
+    if (!data || typeof data !== 'object' || Array.isArray(data)
+      || typeof (data as PortalOrderCodePreviewDto).previewCode !== 'string') {
+      throw new Error('PORTAL_API_INVALID_RESPONSE');
+    }
+    return data as PortalOrderCodePreviewDto;
+  }
+
+  // عرض السعر: POST على /orders/quote بنفس جسم الطلب؛ يُتحقّق من شكل DTO الآمن فقط.
+  // Quote: POST /orders/quote with the same order body; the safe DTO shape is validated.
+  async quoteCustomerOrder(input: PortalOrderCreateInput): Promise<PortalOrderQuoteDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/orders/quote', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    });
+    if (!isPortalOrderQuote(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async getCustomerBalance(): Promise<PortalCustomerBalanceDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/finance/balance');
+    if (!isPortalCustomerBalance(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async getCustomerFinanceStats(): Promise<PortalCustomerFinanceStatsDto> {
+    const data = await this.authenticatedRequest('/api/v1/portal/finance/stats');
+    if (!isPortalCustomerFinanceStats(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  // حذف الطلب: نجاح 200 يُعيد {deleted:true}؛ 404/409 ترمي كود الخطأ من الخادم ليُعرض في الواجهة.
+  // Delete: 200 yields {deleted:true}; 404/409 throw the server's stable code for the UI to surface.
+  async deleteCustomerOrder(orderId: string): Promise<void> {
+    const normalized = orderId.trim();
+    if (!normalized) throw new Error('INVALID_PORTAL_ORDER_ID');
+    await this.authenticatedRequest(`/api/v1/portal/orders/${encodeURIComponent(normalized)}`, { method: 'DELETE' });
+  }
+
+  // تعديل التواصل على طلب معلّق مملوك (D7)؛ الخادم يتحقّق من الملكية والحالة ويعيد الطلب المحدث.
+  async updateCustomerOrder(orderId: string, fields: PortalCustomerOrderUpdateFields): Promise<PortalOrderDto> {
+    const normalized = orderId.trim();
+    if (!normalized) throw new Error('INVALID_PORTAL_ORDER_ID');
+    const data = await this.authenticatedRequest(`/api/v1/portal/orders/${encodeURIComponent(normalized)}`, {
+      method: 'PATCH',
+      body: JSON.stringify(fields),
+    });
+    if (!isPortalOrder(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
   async listPaymentRequests(): Promise<PortalPaymentRequestDto[]> {
     const data = await this.authenticatedRequest('/api/v1/portal/payment-requests');
     if (!Array.isArray(data) || !data.every(isPortalPaymentRequest)) throw new Error('PORTAL_API_INVALID_RESPONSE');
@@ -445,6 +1026,25 @@ class HttpPortalAuthGateway implements PortalAuthGateway {
   async listCustomerLedger(): Promise<PortalLedgerEntryDto[]> {
     const data = await this.authenticatedRequest('/api/v1/portal/ledger');
     if (!Array.isArray(data) || !data.every(isPortalLedgerEntry)) throw new Error('PORTAL_API_INVALID_RESPONSE');
+    return data;
+  }
+
+  async listAnnouncements(): Promise<PortalAnnouncementDto[]> {
+    const data = await this.request('/api/v1/portal/announcements');
+    if (!Array.isArray(data) || !data.every(isPortalAnnouncement)) return [];
+    return data;
+  }
+
+  async getCustomerStatement(query: PortalStatementQuery): Promise<PortalCustomerStatementDto> {
+    const params = new URLSearchParams();
+    if (typeof query.from === 'number') params.set('from', String(query.from));
+    if (typeof query.to === 'number') params.set('to', String(query.to));
+    if (query.type) params.set('type', query.type);
+    if (typeof query.limit === 'number') params.set('limit', String(query.limit));
+    if (typeof query.offset === 'number') params.set('offset', String(query.offset));
+    const qs = params.toString();
+    const data = await this.authenticatedRequest(`/api/v1/portal/finance/statement${qs ? `?${qs}` : ''}`);
+    if (!isPortalStatement(data)) throw new Error('PORTAL_API_INVALID_RESPONSE');
     return data;
   }
 
@@ -540,6 +1140,13 @@ function isPortalTicket(value: unknown): value is PortalTicketDto {
     && typeof value.createdAt === 'number';
 }
 
+function isPortalJobRequest(value: unknown): value is PortalJobRequestDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.status === 'string'
+    && typeof value.createdAt === 'number';
+}
+
 function isPortalOrder(value: unknown): value is PortalOrderDto {
   return isRecord(value)
     && typeof value.id === 'string'
@@ -550,11 +1157,171 @@ function isPortalOrder(value: unknown): value is PortalOrderDto {
     && typeof value.createdAt === 'number';
 }
 
+function isPortalOrderSource(value: unknown): value is PortalOrderSourceDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.name === 'string'
+    && typeof value.type === 'string';
+}
+
+function isPortalCustomerOrderItem(value: unknown): value is PortalCustomerOrderItemDto {
+  return isRecord(value)
+    && typeof value.orderItemId === 'string'
+    && typeof value.orderId === 'string'
+    && typeof value.orderNumber === 'string'
+    && typeof value.productName === 'string'
+    && typeof value.quantity === 'number'
+    && typeof value.productPrice === 'number'
+    && typeof value.unitWeight === 'number'
+    && typeof value.unitCbm === 'number'
+    && typeof value.createdAt === 'number'
+    && ['productUrl', 'trackingNumber', 'itemsStatus'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string',
+    );
+}
+
+function isPortalPreviousProduct(value: unknown): value is PortalPreviousProductDto {
+  return isRecord(value)
+    && typeof value.productName === 'string'
+    && typeof value.quantity === 'number'
+    && typeof value.productPrice === 'number'
+    && typeof value.unitWeight === 'number'
+    && typeof value.unitCbm === 'number'
+    && typeof value.timesOrdered === 'number'
+    && typeof value.lastOrderedAt === 'number'
+    && (value.productUrl === undefined || typeof value.productUrl === 'string');
+}
+
+function isPortalCartItem(value: unknown): value is PortalCartItemDto {
+  return isRecord(value)
+    && typeof value.returnId === 'string'
+    && typeof value.productName === 'string'
+    && typeof value.quantity === 'number'
+    && typeof value.returnedAt === 'number'
+    && ['orderId', 'orderNumber', 'productUrl', 'returnStatus'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string',
+    );
+}
+
+function isPortalShipment(value: unknown): value is PortalShipmentDto {
+  return isRecord(value)
+    && typeof value.shipmentId === 'string'
+    && typeof value.orderId === 'string'
+    && typeof value.orderNumber === 'string'
+    && typeof value.trackingNumber === 'string'
+    && typeof value.status === 'string'
+    && typeof value.createdAt === 'number'
+    && ['orderStatus', 'shippingType', 'source', 'destination', 'contentCategoryName'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string',
+    )
+    && ['cartonCount', 'weight', 'shippedAt', 'expectedArrival', 'deliveredAt'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'number',
+    );
+}
+
+function isPortalBank(value: unknown): value is PortalBankDto {
+  return isRecord(value)
+    && typeof value.accountId === 'string'
+    && typeof value.accountCode === 'string'
+    && typeof value.name === 'string';
+}
+
+function isPortalReferenceOption(value: unknown): value is PortalReferenceOptionDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.code === 'string'
+    && typeof value.nameAr === 'string'
+    && typeof value.nameEn === 'string'
+    && typeof value.price === 'number'
+    && typeof value.duration === 'number';
+}
+
+function isPortalItemCategory(value: unknown): value is PortalItemCategoryDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.code === 'string'
+    && typeof value.nameAr === 'string'
+    && typeof value.nameEn === 'string'
+    && typeof value.feeCurrency === 'string'
+    && typeof value.customsPerCarton === 'number'
+    && typeof value.taxPerCarton === 'number'
+    && typeof value.otherFeesPerCarton === 'number'
+    && typeof value.requiresReview === 'boolean';
+}
+
+function isPortalOrderStatus(value: unknown): value is PortalOrderStatusDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.nameAr === 'string'
+    && typeof value.nameEn === 'string'
+    && typeof value.color === 'string'
+    && typeof value.sortOrder === 'number';
+}
+
+function isPortalCurrencyRef(value: unknown): value is PortalCurrencyRefDto {
+  return isRecord(value)
+    && typeof value.currencyId === 'string'
+    && typeof value.code === 'string'
+    && typeof value.nameAr === 'string'
+    && typeof value.nameEn === 'string'
+    && typeof value.symbol === 'string'
+    && typeof value.flag === 'string'
+    && typeof value.isDefault === 'boolean'
+    && typeof value.rate === 'number';
+}
+
+function isPortalCurrency(value: unknown): value is PortalCurrencyDto {
+  return isRecord(value)
+    && typeof value.code === 'string'
+    && typeof value.symbol === 'string';
+}
+
+function isPortalOrderQuote(value: unknown): value is PortalOrderQuoteDto {
+  if (!isRecord(value)
+    || typeof value.payableAmount !== 'number'
+    || typeof value.totalWeight !== 'number'
+    || typeof value.totalCBM !== 'number'
+    || !isPortalCurrency(value.currency)) {
+    return false;
+  }
+  // الحقول الاختيارية تُتحقق فقط عند وجودها لتجنّب رفض عرض سعر سليم.
+  // Optional fields validate only when present, so a lean quote still passes.
+  for (const key of ['packagingOptionsFee', 'productInsuranceFee', 'couponDeduction'] as const) {
+    if (value[key] !== undefined && typeof value[key] !== 'number') return false;
+  }
+  if (value.paymentPayable !== undefined) {
+    const payable = value.paymentPayable;
+    if (!isRecord(payable)
+      || typeof payable.amount !== 'number'
+      || typeof payable.rate !== 'number'
+      || !isPortalCurrency(payable.currency)) {
+      return false;
+    }
+  }
+  return true;
+}
+
+function isPortalCustomerBalance(value: unknown): value is PortalCustomerBalanceDto {
+  return isRecord(value)
+    && typeof value.balance === 'number'
+    && isPortalCurrency(value.currency);
+}
+
+function isPortalCustomerFinanceStats(value: unknown): value is PortalCustomerFinanceStatsDto {
+  return isRecord(value)
+    && typeof value.totalOrders === 'number'
+    && typeof value.totalPaid === 'number'
+    && typeof value.totalOutstanding === 'number'
+    && isPortalCurrency(value.currency)
+    && isRecord(value.statusCounts)
+    && Object.values(value.statusCounts).every((count) => typeof count === 'number');
+}
+
 function isPortalPaymentRequest(value: unknown): value is PortalPaymentRequestDto {
   return isRecord(value)
     && typeof value.id === 'string'
     && typeof value.amount === 'number'
-    && (value.currency === 'YER' || value.currency === 'USD' || value.currency === 'SAR')
+    && typeof value.currency === 'string' && /^[A-Z]{3}$/.test(value.currency)
     && (value.paymentMethod === 'cash' || value.paymentMethod === 'transfer'
       || value.paymentMethod === 'wallet' || value.paymentMethod === 'check')
     && (value.status === 'pending_verification' || value.status === 'settled' || value.status === 'rejected')
@@ -580,6 +1347,35 @@ function isPortalLedgerEntry(value: unknown): value is PortalLedgerEntryDto {
     && ['paymentMethod', 'description', 'note'].every(
       (key) => value[key] === undefined || typeof value[key] === 'string',
     );
+}
+
+function isPortalAnnouncement(value: unknown): value is PortalAnnouncementDto {
+  return isRecord(value)
+    && typeof value.id === 'string'
+    && typeof value.title === 'string'
+    && typeof value.content === 'string'
+    && (value.priority === 'normal' || value.priority === 'high' || value.priority === 'urgent')
+    && typeof value.createdAt === 'number';
+}
+
+function isPortalStatementEntry(value: unknown): value is PortalStatementEntryDto {
+  return isRecord(value)
+    && typeof value.entryNumber === 'string'
+    && typeof value.transType === 'string'
+    && typeof value.amount === 'number'
+    && typeof value.createdAt === 'number'
+    && ['paymentMethod', 'description', 'note'].every(
+      (key) => value[key] === undefined || typeof value[key] === 'string',
+    );
+}
+
+function isPortalStatement(value: unknown): value is PortalCustomerStatementDto {
+  if (!isRecord(value)) return false;
+  const currency = value.currency;
+  if (!isRecord(currency) || typeof currency.code !== 'string' || typeof currency.symbol !== 'string') return false;
+  if (!Array.isArray(value.entries) || !value.entries.every(isPortalStatementEntry)) return false;
+  return ['from', 'to'].every((key) => value[key] === undefined || typeof value[key] === 'number')
+    && (value.type === undefined || typeof value.type === 'string');
 }
 
 function isPortalCustomerDetails(value: unknown): value is PortalCustomerDetailsDto {

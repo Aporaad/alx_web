@@ -437,6 +437,14 @@ body {
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* أيقونات دوّارة (Loader2) — تستخدم دورة spin التعريف أعلاه. */
+.animate-spin { animation: spin 0.7s linear infinite; transform-origin: center; }
+
+/* أدوات نصية/مالية تُستخدم في نماذج البوابة. */
+.mono { font-family: var(--font-mono); }
+.finance-line { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.78rem; padding: 0.25rem 0; }
+.finance-line strong { font-family: var(--font-mono); }
+
 /* ─── Animations ─────────────────────────────────────────────────────────── */
 @keyframes fadeIn {
   from { opacity: 0; }

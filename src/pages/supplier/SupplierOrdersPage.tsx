@@ -3,7 +3,7 @@ import { Factory, Edit3, X, Check } from 'lucide-react';
 import { usePortalAuth } from '../../context/PortalAuthContext';
 import { usePortalTheme } from '../../context/PortalThemeContext';
 import { portalAuthGateway } from '../../api/portalAuthGateway';
-import type { SupplierOrder, SupplierOrderStage } from '../../types/portalTypes';
+import type { SupplierOrder } from '../../types/portalTypes';
 
 export default function SupplierOrdersPage() {
   const { user } = usePortalAuth();
@@ -27,7 +27,7 @@ export default function SupplierOrdersPage() {
     try {
       if (portalAuthGateway) {
         const apiOrders = await portalAuthGateway.listSupplierOrders();
-        setOrders(apiOrders as SupplierOrder[]);
+        setOrders(apiOrders);
         return;
       }
       setOrders([]);

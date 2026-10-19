@@ -63,6 +63,17 @@ export const t: Record<string, { ar: string; en: string }> = {
   newOrder: { ar: 'طلب جديد', en: 'New Order' },
   myOrders: { ar: 'طلباتي', en: 'My Orders' },
   myLedger: { ar: 'كشف حسابي', en: 'My Statement' },
+  // ── أقسام التنقّل الجديدة (P2) — New P2 navigation sections ──
+  orders: { ar: 'الطلبات', en: 'Orders' },
+  tracking: { ar: 'التتبع', en: 'Tracking' },
+  cart: { ar: 'السلة', en: 'Cart' },
+  finance: { ar: 'المالية', en: 'Finance' },
+  gifts: { ar: 'الهدايا والمسابقات', en: 'Gifts & Contests' },
+  friends: { ar: 'الأصدقاء', en: 'Friends' },
+  office: { ar: 'مكتبني', en: 'My Office' },
+  shipments: { ar: 'الشحنات', en: 'Shipments' },
+  myProducts: { ar: 'منتجاتي', en: 'My Products' },
+  placeholderComingSoon: { ar: 'هذا القسم قيد البناء وسيظهر قريبًا.', en: 'This section is coming soon.' },
   
   // ── Orders ──
   trackingNumber: { ar: 'رقم التتبع', en: 'Tracking #' },
@@ -138,9 +149,7 @@ export const t: Record<string, { ar: string; en: string }> = {
   totalCBM: { ar: 'إجمالي الـ CBM', en: 'Total CBM' },
   totalWeight: { ar: 'إجمالي الوزن', en: 'Total Weight' },
   stage_manufacturing: { ar: 'قيد التصنيع ⚙️', en: 'Manufacturing ⚙️' },
-  stage_packaging: { ar: 'جاري التغليف 📦', en: 'Packaging 📦' },
-  stage_ready_to_ship: { ar: 'جاهز للتحميل 🚢', en: 'Ready to Ship 🚢' },
-  stage_shipped_to_port: { ar: 'تم التسليم للميناء ⚓', en: 'Shipped to Port ⚓' },
+  stage_in_transit: { ar: 'قيد الشحن 🚚', en: 'In Transit 🚚' },
   stage_delivered: { ar: 'تم التسليم ✅', en: 'Delivered ✅' },
   updateCBM: { ar: 'تحديث الأوزان والـ CBM', en: 'Update Weight & CBM' },
   mySupplierLedger: { ar: 'كشف حسابي كمورد', en: 'My Supplier Statement' },

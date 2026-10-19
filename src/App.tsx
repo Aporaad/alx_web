@@ -13,9 +13,15 @@ const ForgotPasswordPage = lazy(() => import('./pages/auth/ForgotPasswordPage'))
 
 const CustomerLayout = lazy(() => import('./layouts/CustomerLayout'));
 const CustomerDashboard = lazy(() => import('./pages/customer/CustomerDashboard'));
-const MyOrdersPage = lazy(() => import('./pages/customer/MyOrdersPage'));
-const CustomerLedgerPage = lazy(() => import('./pages/customer/CustomerLedgerPage'));
 const CustomerOnboardingPage = lazy(() => import('./pages/customer/CustomerOnboardingPage'));
+const OrdersPage = lazy(() => import('./pages/customer/orders/OrdersPage'));
+const GiftsPage = lazy(() => import('./pages/customer/gifts/GiftsPage'));
+const FriendsPage = lazy(() => import('./pages/customer/friends/FriendsPage'));
+const OfficePage = lazy(() => import('./pages/customer/office/OfficePage'));
+const TrackingPage = lazy(() => import('./pages/customer/TrackingPage'));
+const CartPage = lazy(() => import('./pages/customer/CartPage'));
+const FinancePage = lazy(() => import('./pages/customer/finance/FinancePage'));
+const CustomerSupportPage = lazy(() => import('./pages/customer/support/CustomerSupportPage'));
 
 const CourierLayout = lazy(() => import('./layouts/CourierLayout'));
 const CourierDashboard = lazy(() => import('./pages/courier/CourierDashboard'));
@@ -119,12 +125,21 @@ function AppRoutes() {
         }>
           <Route index element={<CustomerDashboard />} />
           <Route path="onboarding" element={<CustomerOnboardingPage />} />
-          <Route path="new-order" element={<MyOrdersPage />} />
-          <Route path="orders" element={<MyOrdersPage />} />
-          <Route path="ledger" element={<CustomerLedgerPage />} />
+          {/* المعالج/القائمة الحقيقية تُبنى في P3؛ المسارات القديمة تبقى تعمل أثناء الانتقال. */}
+          {/* Real wizard/list land in P3; old paths keep working during the transition. */}
+          <Route path="orders" element={<OrdersPage />} />
+          <Route path="tracking" element={<TrackingPage />} />
+          <Route path="cart" element={<CartPage />} />
+          <Route path="finance" element={<FinancePage />} />
+          <Route path="gifts" element={<GiftsPage />} />
+          <Route path="friends" element={<FriendsPage />} />
+          <Route path="office" element={<OfficePage />} />
+          <Route path="support" element={<CustomerSupportPage />} />
+          <Route path="ledger" element={<FinancePage />} />
           <Route path="announcements" element={<AnnouncementsPage />} />
-          <Route path="tickets" element={<SupportTicketsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          {/* المسار القديم tickets → الدعم الموسّع (P2). Old tickets path redirects to the support section. */}
+          <Route path="tickets" element={<Navigate to="/portal/customer/support" replace />} />
         </Route>
 
         {/* ── Courier Portal ─────────────────────────────────────────── */}

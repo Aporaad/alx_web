@@ -29,7 +29,7 @@ export default function SupportTicketsPage() {
     setLoading(true);
     try {
       if (!portalAuthGateway) throw new Error('PORTAL_API_NOT_CONFIGURED');
-      setTickets(await portalAuthGateway.listTickets() as PortalTicket[]);
+      setTickets(await portalAuthGateway.listTickets());
     } finally {
       setLoading(false);
     }

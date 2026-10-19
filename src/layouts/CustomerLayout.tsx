@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate, useLocation, Navigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Package, PlusCircle, FileText, Megaphone,
-  MessageSquare, User, LogOut, Menu, X, ChevronDown, Search, Globe, Sun, Moon
+  LayoutDashboard, Package, Truck, ShoppingCart, Wallet, Gift, Megaphone, Users,
+  MessageSquare, Briefcase, User, LogOut, Menu, X, ChevronDown, Search, Globe, Sun, Moon
 } from 'lucide-react';
 import { usePortalAuth } from '../context/PortalAuthContext';
 import { usePortalTheme } from '../context/PortalThemeContext';
 import GlobalSearch from '../components/common/GlobalSearch';
+import { BrandMark } from '../components/BrandMark';
 import type { TKey } from '../lib/translations';
 
 interface NavItem {
@@ -15,14 +16,20 @@ interface NavItem {
   labelKey: TKey;
 }
 
+// العشرة الأقسام الجديدة (P2). المسارات القديمة (new-order/ledger/tickets) تبقى تعمل عبر إعادة التوجيه في App.
+// The ten new sections (P2). Old paths (new-order/ledger/tickets) keep working via redirects in App.
 const navItems: NavItem[] = [
-  { to: '/portal/customer',            icon: <LayoutDashboard size={16} />, labelKey: 'dashboard' },
-  { to: '/portal/customer/new-order',  icon: <PlusCircle size={16} />,      labelKey: 'newOrder' },
-  { to: '/portal/customer/orders',     icon: <Package size={16} />,         labelKey: 'myOrders' },
-  { to: '/portal/customer/ledger',     icon: <FileText size={16} />,        labelKey: 'myLedger' },
-  { to: '/portal/customer/announcements', icon: <Megaphone size={16} />,    labelKey: 'announcements' },
-  { to: '/portal/customer/tickets',    icon: <MessageSquare size={16} />,   labelKey: 'supportTickets' },
-  { to: '/portal/customer/profile',    icon: <User size={16} />,            labelKey: 'profile' },
+  { to: '/portal/customer',          icon: <LayoutDashboard size={16} />, labelKey: 'dashboard' },
+  { to: '/portal/customer/orders',   icon: <Package size={16} />,         labelKey: 'orders' },
+  { to: '/portal/customer/tracking', icon: <Truck size={16} />,           labelKey: 'tracking' },
+  { to: '/portal/customer/cart',     icon: <ShoppingCart size={16} />,    labelKey: 'cart' },
+  { to: '/portal/customer/finance',  icon: <Wallet size={16} />,          labelKey: 'finance' },
+  { to: '/portal/customer/gifts',    icon: <Gift size={16} />,            labelKey: 'gifts' },
+  { to: '/portal/customer/friends',   icon: <Users size={16} />,           labelKey: 'friends' },
+  { to: '/portal/customer/announcements', icon: <Megaphone size={16} />,  labelKey: 'announcements' },
+  { to: '/portal/customer/support',  icon: <MessageSquare size={16} />,   labelKey: 'supportTickets' },
+  { to: '/portal/customer/office',   icon: <Briefcase size={16} />,       labelKey: 'office' },
+  { to: '/portal/customer/profile',  icon: <User size={16} />,            labelKey: 'profile' },
 ];
 
 export default function CustomerLayout() {
@@ -58,21 +65,7 @@ export default function CustomerLayout() {
       }}>
         {/* Logo */}
         <div style={{ padding: '1.25rem 1rem', borderBottom: '1px solid var(--bg-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{
-              width: 36, height: 36,
-              background: 'rgba(212,175,55,0.1)',
-              border: '1px solid rgba(212,175,55,0.25)',
-              borderRadius: '0.6rem',
-              display: 'flex', alignItems: 'center', justifyContent: 'center'
-            }}>
-              <span style={{ fontSize: '1.1rem' }}>📦</span>
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--gold)' }}>{tr('companyName')}</div>
-              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tr('customer')}</div>
-            </div>
-          </div>
+          <BrandMark fallbackEmoji="📦" caption={tr('customer')} />
         </div>
 
         {/* Nav Links */}

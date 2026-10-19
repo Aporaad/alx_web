@@ -170,6 +170,54 @@ export function PortalAuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
+  // تجديد صامت مستقل عن النشاط: يبقى العميل داخل الجلسة مهما خمل، بلا تسجيل خروج ولا انقطاع.
+  // Activity-independent silent renewal: the customer stays signed in however idle they are, with no sign-out and no interruption.
+  // يُجدوَل من موعد الخادم لا من ساعة العميل؛ والتبويب المخفي/منقطع الشبكة يؤجَّل فحصه بهدوء لا يفقد الجلسة.
+  // Scheduling uses the server's deadline, not the client clock; a hidden or offline tab defers with a quiet re-check instead of losing the session.
+  useEffect(() => {
+    if (!user || !portalAuthGateway) return;
+    const gateway = portalAuthGateway;
+
+    const RENEW_LEAD_MS = 60_000;   // قبل نهاية النافذة بدقيقة. One minute before the window closes.
+    const RECHECK_MS = 30_000;      // سقف إعادة الفحص الهادئة. The cap for a quiet re-check.
+    const RETRY_MS = 15_000;        // معاودة بعد فشل عارض. Retry after a transient failure.
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const clear = () => { if (timer) clearTimeout(timer); timer = null; };
+    const arm = (delayMs: number) => { clear(); timer = setTimeout(run, Math.max(5_000, delayMs)); };
+
+    async function run() {
+      // التبويب مخفي أو الشبكة منقطعة: لا استدعاء، نعاود الفحص بهدوء دون المساس بالجلسة.
+      if (document.hidden || navigator.onLine === false) { arm(RECHECK_MS); return; }
+      const renewed = await gateway.renewSession();
+      if (!renewed) {
+        // إن مُحيت الرموز فهذه نهاية قاطعة؛ وإلا فشل عارض نُعاوده قريبًا دون إزعاج العميل.
+        if (!sessionStorage.getItem('alx_portal_api_refresh_token')) { clear(); return; }
+        arm(RETRY_MS);
+        return;
+      }
+      scheduleNextRenewal();
+    }
+
+    function scheduleNextRenewal() {
+      const deadline = gateway.getNextRenewalAt();
+      // بلا موعد من الخادم (جلسة قديمة): نجلب ملفًا قصيرًا ليأتي الموعد، مع فترة أمان دقيقتين.
+      // With no server deadline (an old session): a short profile fetch learns it, on a two-minute safety cadence.
+      if (deadline === null) { arm(120_000); return; }
+      // أقرب موعد (رمز الوصول عادةً) هو المحرِّك: تجديد صامت قبله بدقيقة دون ضغط على الخادم.
+      // The nearer deadline (the access token) drives the timer: one silent renewal a minute before it.
+      arm(deadline - Date.now() - RENEW_LEAD_MS);
+    }
+
+    const onVisible = () => { if (document.visibilityState === 'visible') run(); };
+    const onOnline = () => run();
+    document.addEventListener('visibilitychange', onVisible);
+    window.addEventListener('online', onOnline);
+    scheduleNextRenewal();
+
+    return () => { clear(); document.removeEventListener('visibilitychange', onVisible); window.removeEventListener('online', onOnline); };
+  }, [user]);
+
   const refreshUser = useCallback(async () => {
     const profile = await requirePortalAuthGateway().getProfile();
     if (profile) {

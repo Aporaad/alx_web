@@ -43,27 +43,8 @@ export default function LandingPage() {
   // FAQ Accordion State
   const [openFaq, setOpenFaq] = useState<number | null>(0);
 
-  // Shipping Fee Estimator Calculation
-  const estimatedCostResult = React.useMemo(() => {
-    if (calcServiceType === 'local') {
-      // Local Yemen delivery flat + weight
-      const base = 4000;
-      const weightFee = Math.max(0, calcWeight - 1) * 1000;
-      return { yer: base + weightFee, usd: Math.round((base + weightFee) / 535) };
-    } else if (calcServiceType === 'express') {
-      // Int'l Air Express per KG in SAR converted to YER
-      const sarRate = 390;
-      const baseSar = calcWeight * 18 + 25; // 18 SAR per kg + express priority
-      const yer = baseSar * sarRate;
-      return { yer, usd: Math.round(yer / 535) };
-    } else {
-      // Factory CBM import
-      const sarRate = 390;
-      const cbmSar = calcCbm * 450; // 450 SAR per CBM
-      const yer = cbmSar * sarRate;
-      return { yer, usd: Math.round(yer / 535) };
-    }
-  }, [calcServiceType, calcWeight, calcCbm]);
+  // لا تسعير في المتصفح: لا تُعرَض أي أسعار/معدّلات/عملات هنا. السعر يُصدر من الخادم داخل بوابة العميل فقط (§0/D2).
+  // No client-side pricing: no rates, costs or currency are shipped to the public bundle. Pricing is server-issued inside the portal only.
 
   const services = [
     {
@@ -449,16 +430,14 @@ export default function LandingPage() {
               )}
             </div>
 
-            {/* Price Preview Card */}
+            {/* Exact price is server-issued inside the portal — no rates shown here */}
             <div className="section-card" style={{ padding: '1.25rem', textAlign: 'center', background: 'rgba(212,175,55,0.04)', borderColor: 'rgba(212,175,55,0.25)' }}>
-              <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', fontWeight: 700 }}>{tr('estimatedShippingFee')}</span>
-              <div style={{ fontSize: '2.2rem', fontWeight: 900, color: 'var(--gold)', fontFamily: 'var(--font-mono)', margin: '0.2rem 0' }}>
-                {estimatedCostResult.yer.toLocaleString()} <span style={{ fontSize: '1rem', fontWeight: 700 }}>YER</span>
-                <span style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginInlineStart: '0.5rem', fontWeight: 600 }}>
-                  (~${estimatedCostResult.usd} USD)
-                </span>
-              </div>
-              <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', margin: 0 }}>{tr('disclaimerCalc')}</p>
+              <span style={{ fontSize: '0.85rem', color: 'var(--gold)', fontWeight: 800 }}>{tr('estimatedShippingFee')}</span>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 0', lineHeight: 1.6 }}>
+                {isRtl
+                  ? 'يُصدر الخادم السعر الدقيق بعد تسجيل الدخول وإنشاء الطلب؛ لا أسعار أو عملات تُعرض هنا.'
+                  : 'An exact price is issued server-side after you sign in and create an order; no rates or currency are shown here.'}
+              </p>
             </div>
 
             <div style={{ textAlign: 'center', marginTop: '1.5rem' }}>

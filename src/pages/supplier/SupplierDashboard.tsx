@@ -30,7 +30,7 @@ export default function SupplierDashboard() {
           cbm += o.cbmVolume || 0;
           weight += o.weightKg || 0;
         });
-        setOrders(apiOrders as SupplierOrder[]);
+        setOrders(apiOrders);
         setStats({ count: apiOrders.length, totalCbm: Math.round(cbm * 10) / 10, totalWeight: weight, balance: 1250 });
         return;
       }

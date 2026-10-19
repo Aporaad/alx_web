@@ -4,6 +4,7 @@ import type {
   PublicTrackingDto,
   PublicTrackingQuery,
 } from '../contracts/portal.contracts';
+import { portalApiConfig } from './config';
 
 export interface PortalGateway {
   getCurrentSession(): Promise<PortalUserSessionDto | null>;
@@ -35,21 +36,9 @@ function isPublicTrackingDto(value: unknown): value is PublicTrackingDto {
       && isNullableTimestamp(event.occurredAt));
 }
 
-function getApiBaseUrl(): string {
-  return String(
-    import.meta.env.VITE_PORTAL_API_BASE_URL
-      || import.meta.env.VITE_ALX_API_URL
-      || import.meta.env.VITE_API_BASE_URL
-      || '',
-  ).replace(/\/$/, '');
-}
-
 export function portalGatewayConfig(): PortalGatewayConfig {
-  const apiBaseUrl = getApiBaseUrl();
-  return {
-    apiBaseUrl,
-    useApi: apiBaseUrl.length > 0 && import.meta.env.VITE_PORTAL_API_ENABLED !== 'false',
-  };
+  const { apiBaseUrl, enabled } = portalApiConfig();
+  return { apiBaseUrl, useApi: enabled };
 }
 
 class HttpPortalGateway implements PortalGateway {

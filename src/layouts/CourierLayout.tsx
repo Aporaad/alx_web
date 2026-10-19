@@ -7,6 +7,7 @@ import {
 import { usePortalAuth } from '../context/PortalAuthContext';
 import { usePortalTheme } from '../context/PortalThemeContext';
 import GlobalSearch from '../components/common/GlobalSearch';
+import { BrandMark } from '../components/BrandMark';
 import type { TKey } from '../lib/translations';
 
 interface NavItem { to: string; icon: React.ReactNode; labelKey: TKey; }
@@ -36,15 +37,7 @@ export default function CourierLayout() {
         ...(window.innerWidth >= 1024 ? { transform: 'translateX(0)' } : {})
       }}>
         <div style={{ padding: '1.25rem 1rem', borderBottom: '1px solid var(--bg-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-            <div style={{ width: 36, height: 36, background: 'rgba(212,175,55,0.1)', border: '1px solid rgba(212,175,55,0.25)', borderRadius: '0.6rem', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ fontSize: '1.1rem' }}>🚚</span>
-            </div>
-            <div>
-              <div style={{ fontWeight: 800, fontSize: '0.9rem', color: 'var(--gold)' }}>{tr('companyName')}</div>
-              <div style={{ fontSize: '0.6rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{tr('courier')}</div>
-            </div>
-          </div>
+          <BrandMark fallbackEmoji="🚚" caption={tr('courier')} />
         </div>
         <nav style={{ flex: 1, padding: '0.75rem 0', overflowY: 'auto' }}>
           {navItems.map(item => (

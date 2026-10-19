@@ -1,6 +1,7 @@
 // ─── Portal Types & Data Contracts ────────────────────────────────────────────
-// All data structures for the ALX Web Portal (Client-facing)
-// Aligned with DATABASE_SCHEMA_DICTIONARY.md
+// All data structures for the ALX Web Portal (Client-facing).
+// كل البيانات تمر عبر alx_api ثم PostgreSQL (أعمدة حقيقية، بلا JSONB) — no Supabase, no `data` blob.
+// نماذج الواجهة مطابقة لعقود alx_api في modules/portal/*.contracts.ts.
 
 export type PortalRole = 'customer' | 'courier' | 'supplier';
 export type ApprovalStatus = 'approved' | 'pending_approval' | 'rejected';
@@ -8,9 +9,10 @@ export type Language = 'ar' | 'en';
 export type Theme = 'dark' | 'light';
 
 // ─── Auth & User ──────────────────────────────────────────────────────────────
-// Mirrors portal_users table (stored inside `data` JSONB column, id = uid)
+// نموذج المستخدم في الواجهة، يُبنى من PortalAuthProfileDto العائد من alx_api.
+// Local UI model mapped from the API's PortalAuthProfileDto (flattened portal_users table).
 export interface PortalUser {
-  uid: string;              // Supabase Auth UID (also stored as table `id`)
+  uid: string;              // Portal user id (portal_users.portal_user_id via alx_api)
   username: string;         // Login/display name (derived from email prefix or chosen)
   email: string;            // Primary login identifier
   fullName: string;         // Full Arabic/English name
@@ -73,9 +75,10 @@ export interface AcquisitionSource {
   notes?: string;
 }
 
+// يطابق PortalCustomerDetailsDto في alx_api (أعمدة حقيقية في cust_details، بلا JSONB).
 export interface CustomerDetails {
   id: string;                 // Detail record ID / userUid
-  userUid: string;            // FK -> portal_users.id (user_uid in DB)
+  userUid: string;            // FK -> portal_users (user_uid in DB)
   customerId?: string;        // FK -> customers.id (customer_id in DB)
   privacyPolicyAgreed: boolean;
   privacyPolicyAgreedAt?: number;
@@ -121,38 +124,9 @@ export type OrderStatus =
   | 'cancelled'
   | 'returned';
 
-export type PackageType = 'standard' | 'express' | 'factory_cbm' | 'heavy';
-
-// Mirrors portal_orders table
-export interface PortalOrder {
-  id: string;
-  trackingNumber: string;
-  customerUid: string;       // FK -> portal_users.id (uid)
-  customerId?: string;       // FK -> customers.id (set after linking)
-  customerName: string;
-  customerPhone: string;
-  recipientName: string;
-  recipientPhone: string;
-  recipientAddress: string;
-  deliveryCity: string;
-  packageType: PackageType;
-  weightKg?: number;
-  cbmVolume?: number;
-  goodsDescription: string;
-  estimatedCost: number;
-  currency: string;
-  status: OrderStatus;
-  source: 'web_portal';
-  courierId?: string;        // FK -> couriers.id (after assignment)
-  courierName?: string;
-  attachments?: string[];
-  notes?: string;
-  createdAt: number;
-  updatedAt: number;
-}
-
 // ─── Financial ────────────────────────────────────────────────────────────────
-// Mirrors transactions table
+// نموذج عرض في الواجهة فقط، يُبنى من PortalLedgerEntryDto العائد من alx_api.
+// UI view-model for the customer ledger, mapped from the API's PortalLedgerEntryDto.
 export interface LedgerEntry {
   id: string;
   userUid?: string;          // FK -> portal_users.id (optional when built from system tables)
@@ -183,21 +157,20 @@ export interface CourierTask {
 }
 
 // ─── Supplier Orders ──────────────────────────────────────────────────────────
+// مراحل شحنة المورد كما يعيدها alx_api (SupplierOrderDto.stage) — stages exactly as the API returns them.
 export type SupplierOrderStage =
   | 'manufacturing'
-  | 'packaging'
-  | 'ready_to_ship'
-  | 'shipped_to_port'
+  | 'in_transit'
   | 'delivered';
 
+// يطابق SupplierOrderDto في alx_api (portal-owned.contracts.ts).
 export interface SupplierOrder {
   id: string;
   trackingNumber: string;
   description: string;
-  weightKg?: number;
-  cbmVolume?: number;
+  weightKg: number;
+  cbmVolume: number;
   stage: SupplierOrderStage;
-  sourceId: string;
   requestedAt: number;
   updatedAt: number;
 }
@@ -206,7 +179,7 @@ export interface SupplierOrder {
 export type TicketType = 'suggestion' | 'complaint' | 'inquiry';
 export type TicketStatus = 'open' | 'in_progress' | 'resolved' | 'closed';
 
-// Mirrors portal_tickets table
+// يطابق PortalTicketDto في alx_api (portal-owned.contracts.ts).
 export interface PortalTicket {
   id: string;
   userUid: string;           // FK -> portal_users.id
@@ -219,26 +192,4 @@ export interface PortalTicket {
   adminResponse?: string;
   respondedAt?: number;
   createdAt: number;
-}
-
-// ─── Announcements ────────────────────────────────────────────────────────────
-export type AudienceTarget = 'all' | 'customer' | 'courier' | 'supplier';
-
-// Mirrors announcements table
-export interface Announcement {
-  id: string;
-  title: string;
-  content: string;
-  imageUrl?: string;
-  targetAudience: AudienceTarget;
-  priority: 'normal' | 'high' | 'urgent';
-  isActive: boolean;
-  createdAt: number;
-}
-
-// ─── Context ──────────────────────────────────────────────────────────────────
-export interface PortalAuthState {
-  user: PortalUser | null;
-  loading: boolean;
-  initialized: boolean;
 }
