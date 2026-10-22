@@ -688,3 +688,506 @@ input:-webkit-autofill:focus {
 .alert-success { background: rgba(16,185,129,0.1); color: #34d399; border: 1px solid rgba(16,185,129,0.2); }
 .alert-warning { background: rgba(245,158,11,0.1); color: #fbbf24; border: 1px solid rgba(245,158,11,0.2); }
 .alert-info    { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.2); }
+
+/* ─── DATE PICKER INPUT (dpi-*) — مكون اختيار التاريخ والوقت المخصص ───────── */
+.dpi-wrapper {
+  position: relative;
+  width: 100%;
+}
+
+.dpi-input-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  background: rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(100, 116, 139, 0.4);
+  border-radius: 12px;
+  cursor: pointer;
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+  user-select: none;
+  outline: none;
+  direction: rtl;
+  position: relative;
+}
+
+.dpi-input-box:hover:not(.dpi-input-box--disabled) {
+  border-color: rgba(212, 175, 55, 0.4);
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dpi-input-box:focus:not(.dpi-input-box--disabled) {
+  border-color: rgba(212, 175, 55, 0.6);
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.dpi-input-box--open {
+  border-color: rgba(212, 175, 55, 0.7) !important;
+  box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15) !important;
+  background: rgba(0, 0, 0, 0.6) !important;
+}
+
+.dpi-input-box--disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dpi-input-icon {
+  width: 16px;
+  height: 16px;
+  color: #64748b;
+  flex-shrink: 0;
+  transition: color 0.2s ease;
+}
+
+.dpi-input-icon--active {
+  color: #d4af37;
+}
+
+.dpi-input-text {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 700;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-family: inherit;
+}
+
+.dpi-input-placeholder {
+  color: #475569;
+  font-weight: 600;
+}
+
+.dpi-clear-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: rgba(100, 116, 139, 0.15);
+  color: #64748b;
+  border: none;
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+.dpi-clear-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+.dpi-popup {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 9999;
+  background: #0d0d0f;
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 16px;
+  box-shadow:
+    0 20px 40px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(212, 175, 55, 0.05),
+    0 8px 16px rgba(0, 0, 0, 0.4);
+  min-width: 280px;
+  overflow: hidden;
+  animation: dpi-pop-in 0.18s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  direction: rtl;
+}
+
+@keyframes dpi-pop-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.dpi-tabs {
+  display: flex;
+  border-bottom: 1px solid rgba(212, 175, 55, 0.12);
+  background: rgba(0, 0, 0, 0.3);
+}
+
+.dpi-tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 10px 8px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  transition: color 0.2s ease, background 0.2s ease;
+  font-family: inherit;
+}
+
+.dpi-tab:hover {
+  color: #cbd5e1;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dpi-tab--active {
+  color: #d4af37;
+  background: rgba(212, 175, 55, 0.06);
+  box-shadow: inset 0 -2px 0 #d4af37;
+}
+
+.dpi-tab-badge {
+  background: rgba(212, 175, 55, 0.15);
+  color: #e7c75d;
+  border-radius: 4px;
+  padding: 1px 5px;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+.dpi-cal-panel {
+  padding: 12px;
+}
+
+.dpi-cal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  gap: 4px;
+}
+
+.dpi-cal-nav-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  background: rgba(0, 0, 0, 0.3);
+  color: #94a3b8;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.dpi-cal-nav-btn:hover {
+  border-color: rgba(212, 175, 55, 0.4);
+  color: #d4af37;
+  background: rgba(212, 175, 55, 0.06);
+}
+
+.dpi-cal-title-btn {
+  flex: 1;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 800;
+  color: #e2e8f0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  transition: background 0.15s ease, color 0.15s ease;
+  font-family: inherit;
+}
+
+.dpi-cal-title-btn:hover {
+  background: rgba(212, 175, 55, 0.08);
+  color: #d4af37;
+}
+
+.dpi-weekdays {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+  margin-bottom: 4px;
+}
+
+.dpi-weekday {
+  text-align: center;
+  font-size: 10px;
+  font-weight: 800;
+  color: #475569;
+  padding: 4px 0;
+  font-family: inherit;
+}
+
+.dpi-days-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
+}
+
+.dpi-day-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  aspect-ratio: 1;
+  min-width: 30px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.dpi-day-btn:hover:not(.dpi-day-btn--disabled):not(.dpi-day-btn--selected) {
+  background: rgba(212, 175, 55, 0.08);
+  color: #e7c75d;
+  border-color: rgba(212, 175, 55, 0.2);
+}
+
+.dpi-day-btn--today {
+  color: #d4af37;
+  border-color: rgba(212, 175, 55, 0.3);
+  font-weight: 800;
+}
+
+.dpi-day-btn--selected {
+  background: #d4af37 !important;
+  color: #0d0d0f !important;
+  font-weight: 900 !important;
+  border-color: transparent !important;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.4);
+}
+
+.dpi-day-btn--disabled {
+  opacity: 0.25;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.dpi-cal-footer {
+  display: flex;
+  justify-content: center;
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid rgba(100, 116, 139, 0.1);
+}
+
+.dpi-today-btn {
+  font-size: 11px;
+  font-weight: 800;
+  color: #d4af37;
+  background: rgba(212, 175, 55, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.2);
+  border-radius: 8px;
+  padding: 5px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.dpi-today-btn:hover {
+  background: rgba(212, 175, 55, 0.15);
+  border-color: rgba(212, 175, 55, 0.5);
+}
+
+.dpi-year-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 4px;
+  padding: 8px 0;
+}
+
+.dpi-year-btn {
+  padding: 8px 4px;
+  font-size: 11px;
+  font-weight: 700;
+  color: #94a3b8;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+}
+
+.dpi-year-btn:hover {
+  background: rgba(212, 175, 55, 0.08);
+  color: #e7c75d;
+  border-color: rgba(212, 175, 55, 0.2);
+}
+
+.dpi-year-btn--active {
+  background: #d4af37 !important;
+  color: #0d0d0f !important;
+  font-weight: 900 !important;
+}
+
+.dpi-time-panel {
+  padding: 12px;
+}
+
+.dpi-time-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #64748b;
+  margin-bottom: 12px;
+  font-family: inherit;
+}
+
+.dpi-time-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  justify-content: center;
+}
+
+.dpi-scroll-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.dpi-scroll-title {
+  font-size: 9px;
+  font-weight: 800;
+  color: #475569;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+}
+
+.dpi-scroll-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 160px;
+  overflow-y: auto;
+  width: 100%;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(212, 175, 55, 0.3) transparent;
+}
+
+.dpi-scroll-item {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 4px;
+  font-size: 13px;
+  font-weight: 700;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-family: monospace;
+  width: 100%;
+}
+
+.dpi-scroll-item:hover:not(.dpi-scroll-item--active) {
+  background: rgba(212, 175, 55, 0.06);
+  color: #e7c75d;
+  border-color: rgba(212, 175, 55, 0.15);
+}
+
+.dpi-scroll-item--active {
+  background: rgba(212, 175, 55, 0.15);
+  color: #d4af37;
+  border-color: rgba(212, 175, 55, 0.3);
+  font-weight: 900;
+}
+
+.dpi-time-colon {
+  font-size: 18px;
+  font-weight: 900;
+  color: #475569;
+  padding-top: 26px;
+  font-family: monospace;
+}
+
+.dpi-ampm-col {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  width: 100%;
+}
+
+.dpi-ampm-btn {
+  padding: 8px 4px;
+  font-size: 13px;
+  font-weight: 800;
+  color: #64748b;
+  background: transparent;
+  border: 1px solid rgba(100, 116, 139, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.12s ease;
+  font-family: inherit;
+}
+
+.dpi-ampm-btn:hover:not(.dpi-ampm-btn--active) {
+  background: rgba(212, 175, 55, 0.06);
+  color: #e7c75d;
+  border-color: rgba(212, 175, 55, 0.2);
+}
+
+.dpi-ampm-btn--active {
+  background: rgba(212, 175, 55, 0.18);
+  color: #d4af37;
+  border-color: rgba(212, 175, 55, 0.4);
+  font-weight: 900;
+}
+
+.dpi-popup-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: 8px 12px 10px;
+  border-top: 1px solid rgba(212, 175, 55, 0.08);
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.dpi-confirm-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 800;
+  color: #0d0d0f;
+  background: linear-gradient(135deg, #d4af37, #b8960c);
+  border: none;
+  border-radius: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: inherit;
+  box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
+.dpi-confirm-btn:hover {
+  background: linear-gradient(135deg, #e7c75d, #d4af37);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.4);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 640px) {
+  .dpi-popup {
+    min-width: 260px;
+    right: auto;
+    left: 0;
+  }
+}
+

@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Printer, Search, FileText } from 'lucide-react';
 import { usePortalTheme } from '../../../context/PortalThemeContext';
 import { useCustomerStatement } from './useCustomerStatement';
+import { DatePickerInput } from '../../../components/common/DatePickerInput';
 
 /**
  * شاشة كشف الحساب المخصص (D3): فترة من/إلى + نوع حركة اختياري، عرض وطباعة.
@@ -33,13 +34,23 @@ export default function StatementSection() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* أدوات الفلترة / Filter controls */}
       <div className="glass-card" style={{ padding: '1rem 1.25rem', display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
-        <div className="form-group" style={{ margin: 0, minWidth: 150 }}>
+        <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
           <label className="form-label">{label('من تاريخ', 'From')}</label>
-          <input type="date" className="form-input" value={from} onChange={(e) => setFrom(e.target.value)} />
+          <DatePickerInput
+            type="date"
+            value={from}
+            onChange={setFrom}
+            placeholder={label('من تاريخ', 'From date')}
+          />
         </div>
-        <div className="form-group" style={{ margin: 0, minWidth: 150 }}>
+        <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
           <label className="form-label">{label('إلى تاريخ', 'To')}</label>
-          <input type="date" className="form-input" value={to} onChange={(e) => setTo(e.target.value)} />
+          <DatePickerInput
+            type="date"
+            value={to}
+            onChange={setTo}
+            placeholder={label('إلى تاريخ', 'To date')}
+          />
         </div>
         <div className="form-group" style={{ margin: 0, minWidth: 160 }}>
           <label className="form-label">{label('نوع الحركة', 'Type')}</label>
